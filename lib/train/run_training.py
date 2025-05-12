@@ -63,37 +63,7 @@ def run_training(script_name, config_name, cudnn_benchmark=True, local_rank=-1, 
 
 def main():
     logger = ExcelLogger('training_log.xlsx')
-    logger.log({
-        'sample_image': 'img001.jpg',
-        'path': '/data/img001.jpg',
-        'loss': 0.5
-    })
 
-    # Second sample entry
-    logger.log({
-        'sample_image': 'img002.jpg',
-        'path': '/data/img002.jpg',
-        'loss': 0.3
-    })
-
-    # Update first sample
-    logger.log({
-        'sample_image': 'img002.jpg',
-        'accuracy': 88.0
-    })
-
-    # Log using latest sample (img001.jpg) without re-specifying it
-    logger.log({
-        'epoch': 5
-    })
-
-    # Add another entry for img002
-    logger.log({
-        'sample_image': 'img003.jpg',
-        'learning_rate': 0.001
-    })
-
-    # Save the log
     logger.save()
     # Your training code here
     parser = argparse.ArgumentParser(description='Run a train scripts in train_settings.')
