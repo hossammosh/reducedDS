@@ -2,6 +2,7 @@
 
 import os
 from openpyxl import Workbook
+from openpyxl.styles import Alignment
 
 class ExcelLogger:
     def __init__(self, filename='log.xlsx'):
@@ -10,6 +11,7 @@ class ExcelLogger:
         self.latest_path = None
         self.data_by_sample = {}
 
+        # Remove existing file to start fresh
         if os.path.exists(self.filename):
             os.remove(self.filename)
 
@@ -26,11 +28,9 @@ class ExcelLogger:
         self.latest_sample = sample_name
         self.latest_path = path
 
-        # Create new entry if not exists
         if sample_name not in self.data_by_sample:
             self.data_by_sample[sample_name] = {'sample name': sample_name, 'path': path}
 
-        # Update the existing row
         for k, v in data.items():
             if k == 'sample_image':
                 self.data_by_sample[sample_name]['sample name'] = v
@@ -53,10 +53,20 @@ class ExcelLogger:
         # Write header
         ws.append(all_keys)
 
-        # Write rows sorted by sample name (optional)
+        # Write data rows
         for sample_name in sorted(self.data_by_sample):
             row = self.data_by_sample[sample_name]
             row_data = [row.get(k, '') for k in all_keys]
             ws.append(row_data)
+
+        # Center alignment and auto column width
+        align_center = Alignment(horizontal='center', vertical='center')
+        for col in ws.columns:
+            max_length = 0
+            for cell in col:
+                cell.alignment = align_center
+                if cell.value:
+                    max_length = max(max_length, len(str(cell.value)))
+            ws.column_dimensions[col[0].column_letter].width = max_length + 2
 
         wb.save(self.filename)

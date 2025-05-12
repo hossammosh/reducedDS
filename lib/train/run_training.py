@@ -78,7 +78,7 @@ def main():
 
     # Update first sample
     logger.log({
-        'sample_image': 'img001.jpg',
+        'sample_image': 'img002.jpg',
         'accuracy': 88.0
     })
 
@@ -89,7 +89,7 @@ def main():
 
     # Add another entry for img002
     logger.log({
-        'sample_image': 'img002.jpg',
+        'sample_image': 'img003.jpg',
         'learning_rate': 0.001
     })
 
