@@ -47,6 +47,7 @@ def run_training(script_name, config_name, cudnn_benchmark=True, local_rank=-1, 
             init_seeds(base_seed)
 
     settings = ws_settings.Settings()
+    settings.base_seed = base_seed
     settings.script_name = script_name
     settings.config_name = config_name
     settings.project_path = 'train/{}/{}'.format(script_name, config_name)
