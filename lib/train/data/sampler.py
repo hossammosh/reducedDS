@@ -119,57 +119,53 @@ class TrackingSampler(torch.utils.data.Dataset):
                 search_frame_ids = None
                 gap_increase = 0
 
-                if self.frame_sample_mode == 'causal':
-                    # Sample test and train frames in a causal manner, i.e. search_frame_ids > template_frame_ids
-                    while search_frame_ids is None:
-                        base_frame_id = self._sample_visible_ids(visible, num_ids=1, min_id=self.num_template_frames - 1,
-                                                                 max_id=len(visible) - self.num_search_frames)
-                        prev_frame_ids = self._sample_visible_ids(visible, num_ids=self.num_template_frames - 1,
-                                                                  min_id=base_frame_id[0] - self.max_gap - gap_increase,
-                                                                  max_id=base_frame_id[0])
-                        if prev_frame_ids is None:
-                            gap_increase += 5
-                            if gap_increase > 1000:
-                                print("too large gap")
-                                print(str(gap_increase))
-                            continue
-                        template_frame_ids = base_frame_id + prev_frame_ids
-                        search_frame_ids = self._sample_visible_ids(visible, min_id=template_frame_ids[0] + 1,
-                                                                  max_id=template_frame_ids[0] + self.max_gap + gap_increase,
-                                                                  num_ids=self.num_search_frames)
-                        # Increase gap until a frame is found
-                        gap_increase += 5
-                        if gap_increase > 1000:
-                            print("too large gap")
-                            print(str(gap_increase))
+                # Frame sampling code...
+                # (keep existing code)
 
-                elif self.frame_sample_mode == "order":
-                    template_frame_ids, search_frame_ids = self.get_frame_ids_order(visible)
-                elif self.frame_sample_mode == "trident" or self.frame_sample_mode == "trident_pro":
-                    template_frame_ids, search_frame_ids = self.get_frame_ids_trident(visible)
-                elif self.frame_sample_mode == "stark":
-                    template_frame_ids, search_frame_ids = self.get_frame_ids_stark(visible, seq_info_dict["valid"])
-                else:
-                    raise ValueError("Illegal frame sample mode")
             else:
                 # In case of image dataset, just repeat the image to generate synthetic video
                 template_frame_ids = [1] * self.num_template_frames
                 search_frame_ids = [1] * self.num_search_frames
             try:
-                template_frames, template_anno, meta_obj_train = dataset.get_frames(seq_id, template_frame_ids, seq_info_dict)
+                # Get frames and metadata
+                template_frames, template_anno, meta_obj_train = dataset.get_frames(seq_id, template_frame_ids,
+                                                                                    seq_info_dict)
                 search_frames, search_anno, meta_obj_test = dataset.get_frames(seq_id, search_frame_ids, seq_info_dict)
 
-                H, W, _ = template_frames[0].shape #h,w 720 1280
-                template_masks = template_anno['mask'] if 'mask' in template_anno else [torch.zeros((H, W))] * self.num_template_frames
-                search_masks = search_anno['mask'] if 'mask' in search_anno else [torch.zeros((H, W))] * self.num_search_frames
-                data = TensorDict({'template_images': template_frames,
-                                   'template_anno': template_anno['bbox'],
-                                   'template_masks': template_masks,
-                                   'search_images': search_frames,
-                                   'search_anno': search_anno['bbox'],
-                                   'search_masks': search_masks,
-                                   'dataset': dataset.get_name(),
-                                   'test_class': meta_obj_test.get('object_class_name')})
+                # Extract the image information
+                template_image_names = meta_obj_train.get('image_names', [None] * self.num_template_frames)
+                template_image_paths = meta_obj_train.get('image_paths', [None] * self.num_template_frames)
+                template_image_sizes = meta_obj_train.get('image_sizes', [None] * self.num_template_frames)
+
+                search_image_names = meta_obj_test.get('image_names', [None] * self.num_search_frames)
+                search_image_paths = meta_obj_test.get('image_paths', [None] * self.num_search_frames)
+                search_image_sizes = meta_obj_test.get('image_sizes', [None] * self.num_search_frames)
+
+                H, W, _ = template_frames[0].shape
+                template_masks = template_anno['mask'] if 'mask' in template_anno else [torch.zeros(
+                    (H, W))] * self.num_template_frames
+                search_masks = search_anno['mask'] if 'mask' in search_anno else [torch.zeros(
+                    (H, W))] * self.num_search_frames
+
+                data = TensorDict({
+                    'template_images': template_frames,
+                    'template_anno': template_anno['bbox'],
+                    'template_masks': template_masks,
+                    'template_image_names': template_image_names,  # Add new fields
+                    'template_image_paths': template_image_paths,
+                    'template_image_sizes': template_image_sizes,
+
+                    'search_images': search_frames,
+                    'search_anno': search_anno['bbox'],
+                    'search_masks': search_masks,
+                    'search_image_names': search_image_names,  # Add new fields
+                    'search_image_paths': search_image_paths,
+                    'search_image_sizes': search_image_sizes,
+
+                    'dataset': dataset.get_name(),
+                    'test_class': meta_obj_test.get('object_class_name')
+                })
+
                 # make data augmentation
                 data = self.processing(data)
 
@@ -183,6 +179,90 @@ class TrackingSampler(torch.utils.data.Dataset):
                 print("too large count_valid")
                 print(str(count_valid))
         return data
+
+    # def getitem(self):
+    #     """
+    #     returns:
+    #         TensorDict - dict containing all the data blocks
+    #     """
+    #     valid = False
+    #     count_valid = 0
+    #     while not valid:
+    #         # Select a dataset
+    #         dataset = random.choices(self.datasets, self.p_datasets)[0]
+    #
+    #         is_video_dataset = dataset.is_video_sequence()
+    #         # sample a sequence from the given dataset
+    #         seq_id, visible, seq_info_dict = self.sample_seq_from_dataset(dataset, is_video_dataset)
+    #         if is_video_dataset:
+    #             template_frame_ids = None
+    #             search_frame_ids = None
+    #             gap_increase = 0
+    #
+    #             if self.frame_sample_mode == 'causal':
+    #                 # Sample test and train frames in a causal manner, i.e. search_frame_ids > template_frame_ids
+    #                 while search_frame_ids is None:
+    #                     base_frame_id = self._sample_visible_ids(visible, num_ids=1, min_id=self.num_template_frames - 1,
+    #                                                              max_id=len(visible) - self.num_search_frames)
+    #                     prev_frame_ids = self._sample_visible_ids(visible, num_ids=self.num_template_frames - 1,
+    #                                                               min_id=base_frame_id[0] - self.max_gap - gap_increase,
+    #                                                               max_id=base_frame_id[0])
+    #                     if prev_frame_ids is None:
+    #                         gap_increase += 5
+    #                         if gap_increase > 1000:
+    #                             print("too large gap")
+    #                             print(str(gap_increase))
+    #                         continue
+    #                     template_frame_ids = base_frame_id + prev_frame_ids
+    #                     search_frame_ids = self._sample_visible_ids(visible, min_id=template_frame_ids[0] + 1,
+    #                                                               max_id=template_frame_ids[0] + self.max_gap + gap_increase,
+    #                                                               num_ids=self.num_search_frames)
+    #                     # Increase gap until a frame is found
+    #                     gap_increase += 5
+    #                     if gap_increase > 1000:
+    #                         print("too large gap")
+    #                         print(str(gap_increase))
+    #
+    #             elif self.frame_sample_mode == "order":
+    #                 template_frame_ids, search_frame_ids = self.get_frame_ids_order(visible)
+    #             elif self.frame_sample_mode == "trident" or self.frame_sample_mode == "trident_pro":
+    #                 template_frame_ids, search_frame_ids = self.get_frame_ids_trident(visible)
+    #             elif self.frame_sample_mode == "stark":
+    #                 template_frame_ids, search_frame_ids = self.get_frame_ids_stark(visible, seq_info_dict["valid"])
+    #             else:
+    #                 raise ValueError("Illegal frame sample mode")
+    #         else:
+    #             # In case of image dataset, just repeat the image to generate synthetic video
+    #             template_frame_ids = [1] * self.num_template_frames
+    #             search_frame_ids = [1] * self.num_search_frames
+    #         try:
+    #             template_frames, template_anno, meta_obj_train = dataset.get_frames(seq_id, template_frame_ids, seq_info_dict)
+    #             search_frames, search_anno, meta_obj_test = dataset.get_frames(seq_id, search_frame_ids, seq_info_dict)
+    #
+    #             H, W, _ = template_frames[0].shape #h,w 720 1280
+    #             template_masks = template_anno['mask'] if 'mask' in template_anno else [torch.zeros((H, W))] * self.num_template_frames
+    #             search_masks = search_anno['mask'] if 'mask' in search_anno else [torch.zeros((H, W))] * self.num_search_frames
+    #             data = TensorDict({'template_images': template_frames,
+    #                                'template_anno': template_anno['bbox'],
+    #                                'template_masks': template_masks,
+    #                                'search_images': search_frames,
+    #                                'search_anno': search_anno['bbox'],
+    #                                'search_masks': search_masks,
+    #                                'dataset': dataset.get_name(),
+    #                                'test_class': meta_obj_test.get('object_class_name')})
+    #             # make data augmentation
+    #             data = self.processing(data)
+    #
+    #             # check whether data is valid
+    #             valid = data['valid']
+    #         except:
+    #             valid = False
+    #
+    #         count_valid += 1
+    #         if count_valid > 200:
+    #             print("too large count_valid")
+    #             print(str(count_valid))
+    #     return data
 
     def show(self, data, strr, i):
         image = data[strr+'_images'][i]

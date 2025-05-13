@@ -177,28 +177,77 @@ class Lasot(BaseVideoDataset):
     def get_frames(self, seq_id, frame_ids, anno=None):
         seq_path = self._get_sequence_path(seq_id)
         obj_class = self._get_class(seq_path)
-        frame_list = [self._get_frame(seq_path, f_id) for f_id in frame_ids]
 
-        # with open('images.txt', 'a') as f:  # 'a' for append mode, use 'w' if you want to overwrite
-        #     for f_id in frame_ids:
-        #         frame_path = self._get_frame_path(seq_path, f_id)
-        #         image_name = os.path.basename(frame_path)
-        #         f.write(f"Image file name: {image_name}, Path: {frame_path}\n")
+        # Create lists to store frame data, paths and sizes
+        frame_list = []
+        image_paths = []
+        image_names = []
+        image_sizes = []
+
+        # Process each frame
+        for f_id in frame_ids:
+            # Get image path
+            frame_path = self._get_frame_path(seq_path, f_id)
+
+            # Get image name
+            image_name = os.path.basename(frame_path)
+
+            # Load the image
+            frame = self._get_frame(seq_path, f_id)
+
+            # Get image size (height, width)
+            height, width = frame.shape[:2]
+
+            # Append to lists
+            frame_list.append(frame)
+            image_paths.append(frame_path)
+            image_names.append(image_name)
+            image_sizes.append((height, width))
 
         if anno is None:
             anno = self.get_sequence_info(seq_id)
+
         anno_frames = {key: [value[f_id, ...].clone() for f_id in frame_ids] for key, value in anno.items()}
+
+        # Add new information to the metadata
         object_meta = OrderedDict({
             'object_class_name': obj_class,
             'motion_class': None,
             'major_class': None,
             'root_class': None,
-            'motion_adverb': None
+            'motion_adverb': None,
+            'image_names': image_names,
+            'image_paths': image_paths,
+            'image_sizes': image_sizes
         })
+
         return frame_list, anno_frames, object_meta
 
-    def get_annos(self, seq_id, frame_ids, anno=None):
-        if anno is None:
-            anno = self.get_sequence_info(seq_id)
-        anno_frames = {key: [value[f_id, ...].clone() for f_id in frame_ids] for key, value in anno.items()}
-        return anno_frames
+    # def get_frames(self, seq_id, frame_ids, anno=None):
+    #     seq_path = self._get_sequence_path(seq_id)
+    #     obj_class = self._get_class(seq_path)
+    #     frame_list = [self._get_frame(seq_path, f_id) for f_id in frame_ids]
+    #
+    #     # with open('images.txt', 'a') as f:  # 'a' for append mode, use 'w' if you want to overwrite
+    #     #     for f_id in frame_ids:
+    #     #         frame_path = self._get_frame_path(seq_path, f_id)
+    #     #         image_name = os.path.basename(frame_path)
+    #     #         f.write(f"Image file name: {image_name}, Path: {frame_path}\n")
+    #
+    #     if anno is None:
+    #         anno = self.get_sequence_info(seq_id)
+    #     anno_frames = {key: [value[f_id, ...].clone() for f_id in frame_ids] for key, value in anno.items()}
+    #     object_meta = OrderedDict({
+    #         'object_class_name': obj_class,
+    #         'motion_class': None,
+    #         'major_class': None,
+    #         'root_class': None,
+    #         'motion_adverb': None
+    #     })
+    #     return frame_list, anno_frames, object_meta
+    #
+    # def get_annos(self, seq_id, frame_ids, anno=None):
+    #     if anno is None:
+    #         anno = self.get_sequence_info(seq_id)
+    #     anno_frames = {key: [value[f_id, ...].clone() for f_id in frame_ids] for key, value in anno.items()}
+    #     return anno_frames
