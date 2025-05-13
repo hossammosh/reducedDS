@@ -33,9 +33,9 @@ def run(settings):
 
     # update settings based on cfg
     update_settings(settings, cfg)
-    #sequence_name = None
+    sequence_name = None
     #sequence_name = 'bird'
-    sequence_name = 'bird-5'
+    #sequence_name = 'bird-5'
 
     settings.sequence_name = sequence_name
     # Record the training log
