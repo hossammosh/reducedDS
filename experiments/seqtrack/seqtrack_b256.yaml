@@ -31,7 +31,7 @@ DATA:
 #    - 1
 #    - 1
 #    - 1
-    SAMPLE_PER_EPOCH: 60000
+    SAMPLE_PER_EPOCH: 20
 MODEL:
   ENCODER:
     TYPE: vit_base_patch16

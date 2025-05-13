@@ -48,6 +48,9 @@ def run_training(script_name, config_name, cudnn_benchmark=True, local_rank=-1, 
 
     settings = ws_settings.Settings()
     settings.base_seed = base_seed
+    logger = ExcelLogger('training_log.xlsx')
+    logger.save()
+    settings.logger = logger
     settings.script_name = script_name
     settings.config_name = config_name
     settings.project_path = 'train/{}/{}'.format(script_name, config_name)
@@ -63,9 +66,7 @@ def run_training(script_name, config_name, cudnn_benchmark=True, local_rank=-1, 
 
 
 def main():
-    logger = ExcelLogger('training_log.xlsx')
 
-    logger.save()
     # Your training code here
     parser = argparse.ArgumentParser(description='Run a train scripts in train_settings.')
     parser.add_argument('--script', type=str, required=True, help='Name of the train script.')

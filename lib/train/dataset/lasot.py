@@ -179,15 +179,11 @@ class Lasot(BaseVideoDataset):
         obj_class = self._get_class(seq_path)
         frame_list = [self._get_frame(seq_path, f_id) for f_id in frame_ids]
 
-        #Print image file names and paths for sampled frames
-        # for f_id in frame_ids:
-        #     frame_path = self._get_frame_path(seq_path, f_id)
-        #     print(f"Image file name: {os.path.basename(frame_path)}, Path: {frame_path}")
-        with open('images.txt', 'a') as f:  # 'a' for append mode, use 'w' if you want to overwrite
-            for f_id in frame_ids:
-                frame_path = self._get_frame_path(seq_path, f_id)
-                image_name = os.path.basename(frame_path)
-                f.write(f"Image file name: {image_name}, Path: {frame_path}\n")
+        # with open('images.txt', 'a') as f:  # 'a' for append mode, use 'w' if you want to overwrite
+        #     for f_id in frame_ids:
+        #         frame_path = self._get_frame_path(seq_path, f_id)
+        #         image_name = os.path.basename(frame_path)
+        #         f.write(f"Image file name: {image_name}, Path: {frame_path}\n")
 
         if anno is None:
             anno = self.get_sequence_info(seq_id)

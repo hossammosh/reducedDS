@@ -70,7 +70,7 @@ class BaseTrainer:
             fail_safe - Bool indicating whether the training to automatically restart in case of any crashes.
         """
         base_seed=self.settings.base_seed
-        init_seeds(base_seed)
+
 
         epoch = -1
         num_tries = 1
@@ -85,6 +85,7 @@ class BaseTrainer:
                     directory_teacher = '{}/{}'.format(self._checkpoint_dir, self.settings.project_path_teacher)
                     self.load_state_dict(directory_teacher, distill=True)
                 for epoch in range(self.epoch+1, max_epochs+1):
+                    init_seeds(base_seed)
                     self.epoch = epoch
 
                     self.train_epoch()
