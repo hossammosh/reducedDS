@@ -150,14 +150,22 @@ class Lasot(BaseVideoDataset):
         seq_name = self.sequence_list[seq_id]
         class_name = seq_name.split('-')[0]
         vid_id = seq_name.split('-')[1]
-        return os.path.join(self.root, class_name, class_name + '-' + vid_id)
+        return vid_id,class_name,seq_name,os.path.join(self.root, class_name, class_name + '-' + vid_id)
 
     def get_sequence_info(self, seq_id):
-        seq_path = self._get_sequence_path(seq_id)
+        vid_id,class_name,seq_name,seq_path = self._get_sequence_path(seq_id)
         bbox = self._read_bb_anno(seq_path)
         valid = (bbox[:, 2] > 0) & (bbox[:, 3] > 0)
         visible = self._read_target_visible(seq_path) & valid.byte()
-        return {'bbox': bbox, 'valid': valid, 'visible': visible}
+        return {
+            'bbox': bbox,
+            'valid': valid,
+            'visible': visible,
+            'vid_id': vid_id,
+            'class_name': class_name,
+            'seq_name': seq_name,
+            'seq_path': seq_path
+        }
 
     def _get_frame_path(self, seq_path, frame_id):
         return os.path.join(seq_path, 'img', '{:08}.jpg'.format(frame_id + 1))  # frames start from 1
