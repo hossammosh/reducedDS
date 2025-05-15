@@ -34,10 +34,7 @@ def names2datasets(name_list: list, settings, image_loader):
                 print("Building lasot dataset from lmdb")
                 datasets.append(Lasot_lmdb(settings.env.lasot_lmdb_dir, split='train', image_loader=image_loader))
             else:
-                print("Building Lasot dataset with specific sequence")
-                datasets.append(Lasot(settings.env.lasot_dir, split='train', image_loader=image_loader,sequence_name=settings.sequence_name))
-                print("sequence_name only added")
-                #the original was datasets.append(Lasot(settings.env.lasot_dir, split='train', image_loader=image_loader))
+                datasets.append(Lasot(settings.env.lasot_dir, split='train', image_loader=image_loader))
         if name == "GOT10K_vottrain":
             if settings.use_lmdb:
                 print("Building got10k from lmdb")

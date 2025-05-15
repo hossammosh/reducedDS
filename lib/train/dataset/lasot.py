@@ -20,72 +20,94 @@ class Lasot(BaseVideoDataset):
         CVPR, 2019
         https://arxiv.org/pdf/1809.07845.pdf
 
-    Download the dataset from https://cis.temple.edu/lasot/download.html
-    """
+    Download the dataset from https://cis.temple.edu/lasot/download.html    """
 
-    def __init__(self, root=None, image_loader=jpeg4py_loader, vid_ids=None, split=None, data_fraction=None, sequence_name=None):
+    def __init__(self, root=None, image_loader=jpeg4py_loader, vid_ids=None, split=None, data_fraction=None):
         """
         args:
             root - path to the lasot dataset.
-            image_loader (jpeg4py_loader) - The function to read the images. jpeg4py (https://github.com/ajkxyz/jpeg4py)
+            image_loader (jpeg4py_loader) -  The function to read the images. jpeg4py (https://github.com/ajkxyz/jpeg4py)
                                             is used by default.
             vid_ids - List containing the ids of the videos (1 - 20) used for training. If vid_ids = [1, 3, 5], then the
                     videos with subscripts -1, -3, and -5 from each class will be used for training.
             split - If split='train', the official train split (protocol-II) is used for training. Note: Only one of
                     vid_ids or split option can be used at a time.
-            data_fraction - Fraction of dataset to be used. The complete dataset is used by default.
-            sequence_name - Controls training scope:
-                            - If a class name (e.g., 'bird'), trains all sequences of that class.
-                            - If a sequence name (e.g., 'bird-1'), trains only that sequence.
-                            - If None, trains all classes and sequences (via vid_ids or split).
+            data_fraction - Fraction of dataset to be used. The complete dataset is used by default
         """
         root = env_settings().lasot_dir if root is None else root
         super().__init__('LaSOT', root, image_loader)
 
-        # Keep a list of all classes initially
+        # Keep a list of all classes
         self.class_list = [f for f in os.listdir(self.root)]
         self.class_to_id = {cls_name: cls_id for cls_id, cls_name in enumerate(self.class_list)}
 
-        if sequence_name is not None:
-            if '-' in sequence_name:
-                # Case 1: Specific sequence (e.g., 'bird-1')
-                try:
-                    class_name, vid_id = sequence_name.split('-')
-                except ValueError:
-                    raise ValueError(f"Sequence name '{sequence_name}' must be in format 'class-id' (e.g., 'bird-1').")
-                if class_name not in self.class_list:
-                    raise ValueError(f"Class '{class_name}' not found in dataset.")
-                if not os.path.isdir(os.path.join(self.root, class_name, sequence_name)):
-                    raise ValueError(f"Sequence '{sequence_name}' not found in dataset at {self.root}.")
-                self.class_list = [class_name]
-                self.class_to_id = {class_name: self.class_to_id[class_name]}
-                self.sequence_list = [sequence_name]
-            else:
-                # Case 2: All sequences of a class (e.g., 'bird')
-                class_name = sequence_name
-                if class_name not in self.class_list:
-                    raise ValueError(f"Class '{class_name}' not found in dataset.")
-                # Get all sequences for this class from the full dataset
-                full_sequence_list = self._build_sequence_list(vid_ids, split)
-                self.sequence_list = [seq for seq in full_sequence_list if seq.startswith(class_name + '-')]
-                if not self.sequence_list:
-                    raise ValueError(f"No sequences found for class '{class_name}' in the specified split or vid_ids.")
-                self.class_list = [class_name]
-                self.class_to_id = {class_name: self.class_to_id[class_name]}
-                if data_fraction is not None:
-                    self.sequence_list = random.sample(self.sequence_list, int(len(self.sequence_list) * data_fraction))
-        else:
-            # Case 3: Full dataset (all classes, all sequences)
-            self.sequence_list = self._build_sequence_list(vid_ids, split)
-            if data_fraction is not None:
-                self.sequence_list = random.sample(self.sequence_list, int(len(self.sequence_list) * data_fraction))
-            # Update class_list to only include classes present in sequence_list
-            used_classes = sorted(set(seq.split('-')[0] for seq in self.sequence_list))
-            self.class_list = used_classes
-            self.class_to_id = {cls_name: cls_id for cls_id, cls_name in enumerate(self.class_list)}
+        self.sequence_list = self._build_sequence_list(vid_ids, split)
+
+        if data_fraction is not None:
+            self.sequence_list = random.sample(self.sequence_list, int(len(self.sequence_list) * data_fraction))
 
         self.seq_per_class = self._build_class_list()
-        print("Done")
+
+    # def __init__(self, root=None, image_loader=jpeg4py_loader, vid_ids=None, split=None, data_fraction=None):
+    #     """
+    #     args:
+    #         root - path to the lasot dataset.
+    #         image_loader (jpeg4py_loader) - The function to read the images. jpeg4py (https://github.com/ajkxyz/jpeg4py)
+    #                                         is used by default.
+    #         vid_ids - List containing the ids of the videos (1 - 20) used for training. If vid_ids = [1, 3, 5], then the
+    #                 videos with subscripts -1, -3, and -5 from each class will be used for training.
+    #         split - If split='train', the official train split (protocol-II) is used for training. Note: Only one of
+    #                 vid_ids or split option can be used at a time.
+    #         data_fraction - Fraction of dataset to be used. The complete dataset is used by default.
+    #
+    #     """
+    #     root = env_settings().lasot_dir if root is None else root
+    #     super().__init__('LaSOT', root, image_loader)
+    #
+    #     # Keep a list of all classes initially
+    #     self.class_list = [f for f in os.listdir(self.root)]
+    #     self.class_to_id = {cls_name: cls_id for cls_id, cls_name in enumerate(self.class_list)}
+    #
+    #     if sequence_name is not None:
+    #         if '-' in sequence_name:
+    #             # Case 1: Specific sequence (e.g., 'bird-1')
+    #             try:
+    #                 class_name, vid_id = sequence_name.split('-')
+    #             except ValueError:
+    #                 raise ValueError(f"Sequence name '{sequence_name}' must be in format 'class-id' (e.g., 'bird-1').")
+    #             if class_name not in self.class_list:
+    #                 raise ValueError(f"Class '{class_name}' not found in dataset.")
+    #             if not os.path.isdir(os.path.join(self.root, class_name, sequence_name)):
+    #                 raise ValueError(f"Sequence '{sequence_name}' not found in dataset at {self.root}.")
+    #             self.class_list = [class_name]
+    #             self.class_to_id = {class_name: self.class_to_id[class_name]}
+    #             self.sequence_list = [sequence_name]
+    #         else:
+    #             # Case 2: All sequences of a class (e.g., 'bird')
+    #             class_name = sequence_name
+    #             if class_name not in self.class_list:
+    #                 raise ValueError(f"Class '{class_name}' not found in dataset.")
+    #             # Get all sequences for this class from the full dataset
+    #             full_sequence_list = self._build_sequence_list(vid_ids, split)
+    #             self.sequence_list = [seq for seq in full_sequence_list if seq.startswith(class_name + '-')]
+    #             if not self.sequence_list:
+    #                 raise ValueError(f"No sequences found for class '{class_name}' in the specified split or vid_ids.")
+    #             self.class_list = [class_name]
+    #             self.class_to_id = {class_name: self.class_to_id[class_name]}
+    #             if data_fraction is not None:
+    #                 self.sequence_list = random.sample(self.sequence_list, int(len(self.sequence_list) * data_fraction))
+    #     else:
+    #         # Case 3: Full dataset (all classes, all sequences)
+    #         self.sequence_list = self._build_sequence_list(vid_ids, split)
+    #         if data_fraction is not None:
+    #             self.sequence_list = random.sample(self.sequence_list, int(len(self.sequence_list) * data_fraction))
+    #         # Update class_list to only include classes present in sequence_list
+    #         used_classes = sorted(set(seq.split('-')[0] for seq in self.sequence_list))
+    #         self.class_list = used_classes
+    #         self.class_to_id = {cls_name: cls_id for cls_id, cls_name in enumerate(self.class_list)}
+    #
+    #     self.seq_per_class = self._build_class_list()
+    #     print("Done")
 
     def _build_sequence_list(self, vid_ids=None, split=None):
         if split is not None:
