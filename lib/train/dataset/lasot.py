@@ -47,7 +47,6 @@ class Lasot(BaseVideoDataset):
             self.sequence_list = random.sample(self.sequence_list, int(len(self.sequence_list) * data_fraction))
 
         self.seq_per_class = self._build_class_list()
-
     # def __init__(self, root=None, image_loader=jpeg4py_loader, vid_ids=None, split=None, data_fraction=None):
     #     """
     #     args:
