@@ -20,93 +20,72 @@ class Lasot(BaseVideoDataset):
         CVPR, 2019
         https://arxiv.org/pdf/1809.07845.pdf
 
-    Download the dataset from https://cis.temple.edu/lasot/download.html    """
+    Download the dataset from https://cis.temple.edu/lasot/download.html
+    """
 
-    def __init__(self, root=None, image_loader=jpeg4py_loader, vid_ids=None, split=None, data_fraction=None):
+    def __init__(self, root=None, image_loader=jpeg4py_loader, vid_ids=None, split=None, data_fraction=None, sequence_name=None):
         """
         args:
             root - path to the lasot dataset.
-            image_loader (jpeg4py_loader) -  The function to read the images. jpeg4py (https://github.com/ajkxyz/jpeg4py)
+            image_loader (jpeg4py_loader) - The function to read the images. jpeg4py (https://github.com/ajkxyz/jpeg4py)
                                             is used by default.
             vid_ids - List containing the ids of the videos (1 - 20) used for training. If vid_ids = [1, 3, 5], then the
                     videos with subscripts -1, -3, and -5 from each class will be used for training.
             split - If split='train', the official train split (protocol-II) is used for training. Note: Only one of
                     vid_ids or split option can be used at a time.
-            data_fraction - Fraction of dataset to be used. The complete dataset is used by default
+            data_fraction - Fraction of dataset to be used. The complete dataset is used by default.
+            sequence_name - Controls training scope:
+                            - If a class name (e.g., 'bird'), trains all sequences of that class.
+                            - If a sequence name (e.g., 'bird-1'), trains only that sequence.
+                            - If None, trains all classes and sequences (via vid_ids or split).
         """
         root = env_settings().lasot_dir if root is None else root
         super().__init__('LaSOT', root, image_loader)
 
-        # Keep a list of all classes
+        # Keep a list of all classes initially
         self.class_list = [f for f in os.listdir(self.root)]
         self.class_to_id = {cls_name: cls_id for cls_id, cls_name in enumerate(self.class_list)}
 
-        self.sequence_list = self._build_sequence_list(vid_ids, split)
-
-        if data_fraction is not None:
-            self.sequence_list = random.sample(self.sequence_list, int(len(self.sequence_list) * data_fraction))
+        if sequence_name is not None:
+            if '-' in sequence_name:
+                # Case 1: Specific sequence (e.g., 'bird-1')
+                try:
+                    class_name, vid_id = sequence_name.split('-')
+                except ValueError:
+                    raise ValueError(f"Sequence name '{sequence_name}' must be in format 'class-id' (e.g., 'bird-1').")
+                if class_name not in self.class_list:
+                    raise ValueError(f"Class '{class_name}' not found in dataset.")
+                if not os.path.isdir(os.path.join(self.root, class_name, sequence_name)):
+                    raise ValueError(f"Sequence '{sequence_name}' not found in dataset at {self.root}.")
+                self.class_list = [class_name]
+                self.class_to_id = {class_name: self.class_to_id[class_name]}
+                self.sequence_list = [sequence_name]
+            else:
+                # Case 2: All sequences of a class (e.g., 'bird')
+                class_name = sequence_name
+                if class_name not in self.class_list:
+                    raise ValueError(f"Class '{class_name}' not found in dataset.")
+                # Get all sequences for this class from the full dataset
+                full_sequence_list = self._build_sequence_list(vid_ids, split)
+                self.sequence_list = [seq for seq in full_sequence_list if seq.startswith(class_name + '-')]
+                if not self.sequence_list:
+                    raise ValueError(f"No sequences found for class '{class_name}' in the specified split or vid_ids.")
+                self.class_list = [class_name]
+                self.class_to_id = {class_name: self.class_to_id[class_name]}
+                if data_fraction is not None:
+                    self.sequence_list = random.sample(self.sequence_list, int(len(self.sequence_list) * data_fraction))
+        else:
+            # Case 3: Full dataset (all classes, all sequences)
+            self.sequence_list = self._build_sequence_list(vid_ids, split)
+            if data_fraction is not None:
+                self.sequence_list = random.sample(self.sequence_list, int(len(self.sequence_list) * data_fraction))
+            # Update class_list to only include classes present in sequence_list
+            used_classes = sorted(set(seq.split('-')[0] for seq in self.sequence_list))
+            self.class_list = used_classes
+            self.class_to_id = {cls_name: cls_id for cls_id, cls_name in enumerate(self.class_list)}
 
         self.seq_per_class = self._build_class_list()
-    # def __init__(self, root=None, image_loader=jpeg4py_loader, vid_ids=None, split=None, data_fraction=None):
-    #     """
-    #     args:
-    #         root - path to the lasot dataset.
-    #         image_loader (jpeg4py_loader) - The function to read the images. jpeg4py (https://github.com/ajkxyz/jpeg4py)
-    #                                         is used by default.
-    #         vid_ids - List containing the ids of the videos (1 - 20) used for training. If vid_ids = [1, 3, 5], then the
-    #                 videos with subscripts -1, -3, and -5 from each class will be used for training.
-    #         split - If split='train', the official train split (protocol-II) is used for training. Note: Only one of
-    #                 vid_ids or split option can be used at a time.
-    #         data_fraction - Fraction of dataset to be used. The complete dataset is used by default.
-    #
-    #     """
-    #     root = env_settings().lasot_dir if root is None else root
-    #     super().__init__('LaSOT', root, image_loader)
-    #
-    #     # Keep a list of all classes initially
-    #     self.class_list = [f for f in os.listdir(self.root)]
-    #     self.class_to_id = {cls_name: cls_id for cls_id, cls_name in enumerate(self.class_list)}
-    #
-    #     if sequence_name is not None:
-    #         if '-' in sequence_name:
-    #             # Case 1: Specific sequence (e.g., 'bird-1')
-    #             try:
-    #                 class_name, vid_id = sequence_name.split('-')
-    #             except ValueError:
-    #                 raise ValueError(f"Sequence name '{sequence_name}' must be in format 'class-id' (e.g., 'bird-1').")
-    #             if class_name not in self.class_list:
-    #                 raise ValueError(f"Class '{class_name}' not found in dataset.")
-    #             if not os.path.isdir(os.path.join(self.root, class_name, sequence_name)):
-    #                 raise ValueError(f"Sequence '{sequence_name}' not found in dataset at {self.root}.")
-    #             self.class_list = [class_name]
-    #             self.class_to_id = {class_name: self.class_to_id[class_name]}
-    #             self.sequence_list = [sequence_name]
-    #         else:
-    #             # Case 2: All sequences of a class (e.g., 'bird')
-    #             class_name = sequence_name
-    #             if class_name not in self.class_list:
-    #                 raise ValueError(f"Class '{class_name}' not found in dataset.")
-    #             # Get all sequences for this class from the full dataset
-    #             full_sequence_list = self._build_sequence_list(vid_ids, split)
-    #             self.sequence_list = [seq for seq in full_sequence_list if seq.startswith(class_name + '-')]
-    #             if not self.sequence_list:
-    #                 raise ValueError(f"No sequences found for class '{class_name}' in the specified split or vid_ids.")
-    #             self.class_list = [class_name]
-    #             self.class_to_id = {class_name: self.class_to_id[class_name]}
-    #             if data_fraction is not None:
-    #                 self.sequence_list = random.sample(self.sequence_list, int(len(self.sequence_list) * data_fraction))
-    #     else:
-    #         # Case 3: Full dataset (all classes, all sequences)
-    #         self.sequence_list = self._build_sequence_list(vid_ids, split)
-    #         if data_fraction is not None:
-    #             self.sequence_list = random.sample(self.sequence_list, int(len(self.sequence_list) * data_fraction))
-    #         # Update class_list to only include classes present in sequence_list
-    #         used_classes = sorted(set(seq.split('-')[0] for seq in self.sequence_list))
-    #         self.class_list = used_classes
-    #         self.class_to_id = {cls_name: cls_id for cls_id, cls_name in enumerate(self.class_list)}
-    #
-    #     self.seq_per_class = self._build_class_list()
-    #     print("Done")
+        print("Done")
 
     def _build_sequence_list(self, vid_ids=None, split=None):
         if split is not None:
@@ -171,22 +150,14 @@ class Lasot(BaseVideoDataset):
         seq_name = self.sequence_list[seq_id]
         class_name = seq_name.split('-')[0]
         vid_id = seq_name.split('-')[1]
-        return vid_id,class_name,seq_name,os.path.join(self.root, class_name, class_name + '-' + vid_id)
+        return os.path.join(self.root, class_name, class_name + '-' + vid_id)
 
     def get_sequence_info(self, seq_id):
-        vid_id,class_name,seq_name,seq_path = self._get_sequence_path(seq_id)
+        seq_path = self._get_sequence_path(seq_id)
         bbox = self._read_bb_anno(seq_path)
         valid = (bbox[:, 2] > 0) & (bbox[:, 3] > 0)
         visible = self._read_target_visible(seq_path) & valid.byte()
-        return {
-            'bbox': bbox,
-            'valid': valid,
-            'visible': visible,
-            'vid_id': vid_id,
-            'class_name': class_name,
-            'seq_name': seq_name,
-            'seq_path': seq_path
-        }
+        return {'bbox': bbox, 'valid': valid, 'visible': visible}
 
     def _get_frame_path(self, seq_path, frame_id):
         return os.path.join(seq_path, 'img', '{:08}.jpg'.format(frame_id + 1))  # frames start from 1
@@ -206,77 +177,27 @@ class Lasot(BaseVideoDataset):
     def get_frames(self, seq_id, frame_ids, anno=None):
         seq_path = self._get_sequence_path(seq_id)
         obj_class = self._get_class(seq_path)
+        frame_list = [self._get_frame(seq_path, f_id) for f_id in frame_ids]
 
-        # Create lists to store frame data, paths and sizes
-        frame_list = []
-        image_paths = []
-        image_names = []
-        image_sizes = []
-
-        # Process each frame
-        for f_id in frame_ids:
-            # Get image path
-            frame_path = self._get_frame_path(seq_path, f_id)
-
-            # Get image name
-            image_name = os.path.basename(frame_path)
-
-            # Load the image
-            frame = self._get_frame(seq_path, f_id)
-
-            # Get image size (height, width)
-            height, width = frame.shape[:2]
-
-            # Append to lists
-            frame_list.append(frame)
-            image_paths.append(frame_path)
-            image_names.append(image_name)
-            image_sizes.append((height, width))
+        # Print image file names and paths for sampled frames
+        # for f_id in frame_ids:
+        #     frame_path = self._get_frame_path(seq_path, f_id)
+        #     print(f"Image file name: {os.path.basename(frame_path)}, Path: {frame_path}")
 
         if anno is None:
             anno = self.get_sequence_info(seq_id)
-
         anno_frames = {key: [value[f_id, ...].clone() for f_id in frame_ids] for key, value in anno.items()}
-
-        # Add new information to the metadata
         object_meta = OrderedDict({
             'object_class_name': obj_class,
             'motion_class': None,
             'major_class': None,
             'root_class': None,
-            'motion_adverb': None,
-            'image_names': image_names,
-            'image_paths': image_paths,
-            'image_sizes': image_sizes
+            'motion_adverb': None
         })
-
         return frame_list, anno_frames, object_meta
 
-    # def get_frames(self, seq_id, frame_ids, anno=None):
-    #     seq_path = self._get_sequence_path(seq_id)
-    #     obj_class = self._get_class(seq_path)
-    #     frame_list = [self._get_frame(seq_path, f_id) for f_id in frame_ids]
-    #
-    #     # with open('images.txt', 'a') as f:  # 'a' for append mode, use 'w' if you want to overwrite
-    #     #     for f_id in frame_ids:
-    #     #         frame_path = self._get_frame_path(seq_path, f_id)
-    #     #         image_name = os.path.basename(frame_path)
-    #     #         f.write(f"Image file name: {image_name}, Path: {frame_path}\n")
-    #
-    #     if anno is None:
-    #         anno = self.get_sequence_info(seq_id)
-    #     anno_frames = {key: [value[f_id, ...].clone() for f_id in frame_ids] for key, value in anno.items()}
-    #     object_meta = OrderedDict({
-    #         'object_class_name': obj_class,
-    #         'motion_class': None,
-    #         'major_class': None,
-    #         'root_class': None,
-    #         'motion_adverb': None
-    #     })
-    #     return frame_list, anno_frames, object_meta
-    #
-    # def get_annos(self, seq_id, frame_ids, anno=None):
-    #     if anno is None:
-    #         anno = self.get_sequence_info(seq_id)
-    #     anno_frames = {key: [value[f_id, ...].clone() for f_id in frame_ids] for key, value in anno.items()}
-    #     return anno_frames
+    def get_annos(self, seq_id, frame_ids, anno=None):
+        if anno is None:
+            anno = self.get_sequence_info(seq_id)
+        anno_frames = {key: [value[f_id, ...].clone() for f_id in frame_ids] for key, value in anno.items()}
+        return anno_frames

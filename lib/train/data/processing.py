@@ -4,6 +4,7 @@ from lib.utils import TensorDict
 import lib.train.data.processing_utils as prutils
 import torch.nn.functional as F
 
+
 def stack_tensors(x):
     if isinstance(x, (list, tuple)) and isinstance(x[0], torch.Tensor):
         return torch.stack(x)
@@ -256,3 +257,4 @@ class SeqTrackProcessing(BaseProcessing):
             data = data.apply(lambda x: x[0] if isinstance(x, list) else x)
 
         return data
+

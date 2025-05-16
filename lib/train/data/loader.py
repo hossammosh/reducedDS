@@ -80,12 +80,19 @@ def ltr_collate_stack1(batch):
             # shared memory tensor to avoid an extra copy
             numel = sum([x.numel() for x in batch])
             storage = batch[0].storage()._new_shared(numel)
-            #storage = batch[0].untyped_storage()._new_shared(numel)
-
             out = batch[0].new(storage)
-
+            # len(batch)
+            # 16
+            # batch[0].shape
+            # torch.Size([1, 3, 192, 192])
+            # out.shape
+            # torch.Size([1769472])
         return torch.stack(batch, 1, out=out.resize_(0))
-
+            # out.shape
+            # torch.Size([1, 16, 3, 192, 192])
+        # if batch[0].dim() < 4:
+        #     return torch.stack(batch, 0, out=out)
+        # return torch.cat(batch, 0, out=out)
     elif elem_type.__module__ == 'numpy' and elem_type.__name__ != 'str_' \
             and elem_type.__name__ != 'string_':
         elem = batch[0]

@@ -388,9 +388,13 @@ def vit_huge_patch14(pretrained=False, pretrain_type='default',
 def load_pretrained(model, pretrain_type='default', cfg=None, num_classes=1000, in_chans=3, filter_fn=None, strict=True):
     if cfg is None:
         cfg = getattr(model, 'default_cfg')
-    if cfg is None or 'url' not in cfg or not cfg['url']:
-        print("Pretrained model URL is invalid, using random initialization.")
-        return
+    #if cfg is None or 'url' not in cfg or not cfg['url']:
+    #    print("Pretrained model URL is invalid, using random initialization.")
+    #    return
+    if 'url' not in cfg or not cfg['url']:
+        pretrained_path = '/cluster/users/hlwn032u1/data/seq/pretrained_networks/mae_pretrain_vit_base.pth'
+        state_dict = torch.load(pretrained_path, map_location='cpu')
+
 
     state_dict = model_zoo.load_url(cfg['url'], progress=False, map_location='cpu')
     if pretrain_type == 'mae':

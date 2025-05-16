@@ -124,7 +124,7 @@ class Lasot(BaseVideoDataset):
     def get_sequence_info(self, seq_id):
         seq_path = self._get_sequence_path(seq_id)
         bbox = self._read_bb_anno(seq_path)
-        print("seq_path",seq_path)
+
         valid = (bbox[:, 2] > 0) & (bbox[:, 3] > 0)
         visible = self._read_target_visible(seq_path) & valid.byte()
 

@@ -34,10 +34,10 @@ def run(settings):
     # update settings based on cfg
     update_settings(settings, cfg)
     # sequence_name = None
-    # #sequence_name = 'bird'
-    # #sequence_name = 'bird-5'
-    #
-    # settings.sequence_name = sequence_name
+    sequence_name = 'bird'
+    #sequence_name = 'bird-5'
+
+    settings.sequence_name = sequence_name
     # Record the training log
     log_dir = os.path.join(settings.save_dir, 'logs')
     if settings.local_rank in [-1, 0]:
@@ -85,5 +85,4 @@ def run(settings):
     trainer = LTRTrainer(actor, [loader_train], optimizer, settings, lr_scheduler, use_amp=use_amp)
 
     # train process
-    #in base trainer, the function train contains condition load_latest for loading used checkpoint
     trainer.train(cfg.TRAIN.EPOCH, load_latest=True, fail_safe=True)

@@ -1,6 +1,5 @@
 import os
-import sys
-from logging_config import ExcelLogger
+#import sys
 import argparse
 import importlib
 import cv2 as cv
@@ -11,7 +10,7 @@ import random
 import numpy as np
 torch.backends.cudnn.benchmark = False
 
-import _init_paths
+#import _init_paths
 import lib.train.admin.settings as ws_settings
 
 
@@ -27,7 +26,7 @@ def init_seeds(seed):
 def run_training(script_name, config_name, cudnn_benchmark=True, local_rank=-1, save_dir=None, base_seed=None, use_lmdb=False):
     """Run the train script.
     args:
-        script_name: Name of emperiment in the "experiments/" folder.
+        script_name: Name of experiment in the "experiments/" folder.
         config_name: Name of the yaml file in the "experiments/<script_name>".
         cudnn_benchmark: Use cudnn benchmark or not (default is True).
     """
@@ -47,10 +46,6 @@ def run_training(script_name, config_name, cudnn_benchmark=True, local_rank=-1, 
             init_seeds(base_seed)
 
     settings = ws_settings.Settings()
-    settings.base_seed = base_seed
-    logger = ExcelLogger('training_log.xlsx')
-    logger.save()
-    settings.logger = logger
     settings.script_name = script_name
     settings.config_name = config_name
     settings.project_path = 'train/{}/{}'.format(script_name, config_name)
@@ -66,30 +61,21 @@ def run_training(script_name, config_name, cudnn_benchmark=True, local_rank=-1, 
 
 
 def main():
-
-    # Your training code here
     parser = argparse.ArgumentParser(description='Run a train scripts in train_settings.')
     parser.add_argument('--script', type=str, required=True, help='Name of the train script.')
     parser.add_argument('--config', type=str, required=True, help="Name of the config file.")
     parser.add_argument('--cudnn_benchmark', type=bool, default=True, help='Set cudnn benchmark on (1) or off (0) (default is on).')
-    # only for pytorch 1.x parser.add_argument('--local_rank', default=-1, type=int, help='node rank for distributed training')
-    parser.add_argument('--local_rank', type=int, default=None, help='Local rank for distributed training')
-
+    parser.add_argument('--local_rank', default=-1, type=int, help='node rank for distributed training')
     parser.add_argument('--save_dir', type=str, help='the directory to save checkpoints and logs')
     parser.add_argument('--seed', type=int, default=None, help='seed for random numbers')
     parser.add_argument('--use_lmdb', type=int, choices=[0, 1], default=0)  # whether datasets are in lmdb format
 
     args = parser.parse_args()
-    if args.local_rank is None:
-        args.local_rank = int(os.environ.get("LOCAL_RANK", 0))
-
     if args.local_rank != -1:
         dist.init_process_group(backend='nccl')
         torch.cuda.set_device(args.local_rank)
     else:
         torch.cuda.set_device(0)
-
-
     print("local_rank:",args.local_rank)
     run_training(args.script, args.config, cudnn_benchmark=args.cudnn_benchmark,
                  local_rank=args.local_rank, save_dir=args.save_dir, base_seed=args.seed,
