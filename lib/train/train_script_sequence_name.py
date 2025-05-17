@@ -16,7 +16,6 @@ from lib.train.actors import SeqTrackActor
 # for import modules
 import importlib
 
-
 def run(settings):
     settings.description = 'Training script for SeqTrack'
 
@@ -34,22 +33,23 @@ def run(settings):
 
     # update settings based on cfg
     update_settings(settings, cfg)
+    # sequence_name = None
+    sequence_name = 'bird'
+    #sequence_name = 'bird-5'
 
+    settings.sequence_name = sequence_name
     # Record the training log
     log_dir = os.path.join(settings.save_dir, 'logs')
     if settings.local_rank in [-1, 0]:
         if not os.path.exists(log_dir):
             os.makedirs(log_dir)
     settings.log_file = os.path.join(log_dir, "%s-%s.log" % (settings.script_name, settings.config_name))
-
     # Build dataloaders
     loader_type = getattr(cfg.DATA, "LOADER", "tracking")
     if loader_type == "tracking":
         loader_train = build_dataloaders(cfg, settings)
     else:
         raise ValueError("illegal DATA LOADER")
-
-
     # Create network
     if settings.script_name == "seqtrack":
         net = build_seqtrack(cfg)        #pix2seq method with multi-frames and encoder mask
