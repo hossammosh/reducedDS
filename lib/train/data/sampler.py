@@ -160,8 +160,8 @@ class TrackingSampler(torch.utils.data.Dataset):
                 template_frame_ids = [1] * self.num_template_frames
                 search_frame_ids = [1] * self.num_search_frames
             try:
-                template_frames, template_anno, meta_obj_train = dataset.get_frames(seq_id, template_frame_ids,
-                                                                                    seq_info_dict)
+                #seq_info_dict_anno=dict(list(seq_info_dict.items())[:3])
+                template_frames, template_anno, meta_obj_train = dataset.get_frames(seq_id, template_frame_ids,seq_info_dict)
                 search_frames, search_anno, meta_obj_test = dataset.get_frames(seq_id, search_frame_ids, seq_info_dict)
 
                 H, W, _ = template_frames[0].shape
@@ -169,15 +169,22 @@ class TrackingSampler(torch.utils.data.Dataset):
                     (H, W))] * self.num_template_frames
                 search_masks = search_anno['mask'] if 'mask' in search_anno else [torch.zeros(
                     (H, W))] * self.num_search_frames
-
                 data = TensorDict({'template_images': template_frames,
-                                   'template_anno': template_anno['bbox'],
-                                   'template_masks': template_masks,
-                                   'search_images': search_frames,
-                                   'search_anno': search_anno['bbox'],
-                                   'search_masks': search_masks,
-                                   'dataset': dataset.get_name(),
-                                   'test_class': meta_obj_test.get('object_class_name')})
+                                    'template_anno': template_anno['bbox'],
+                                    'template_masks': template_masks,
+                                    'search_images': search_frames,
+                                    'search_anno': search_anno['bbox'],
+                                    'search_masks': search_masks,
+                                    'dataset': dataset.get_name(),
+                                    'test_class': meta_obj_test.get('object_class_name')})
+                # data = TensorDict({'template_images': template_frames,
+                #                    'template_anno': template_anno['bbox'],
+                #                    'template_masks': template_masks,
+                #                    'search_images': search_frames,
+                #                    'search_anno': search_anno['bbox'],
+                #                    'search_masks': search_masks,
+                #                    'dataset': dataset.get_name(),
+                #                    'test_class': meta_obj_test.get('object_class_name')})
                 # make data augmentation
                 data = self.processing(data)
 

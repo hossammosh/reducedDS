@@ -174,19 +174,18 @@ class Lasot(BaseVideoDataset):
 
         return obj_class
 
-    def get_frames(self, seq_id, frame_ids, anno=None):
-        seq_path = self._get_sequence_path(seq_id)
-
-        obj_class = self._get_class(seq_path)
-        frame_list = [self._get_frame(seq_path, f_id) for f_id in frame_ids]
+    def get_frames(self, seq_id, frame_ids, seq_info_dict=None):
+        anno = dict(list(seq_info_dict.items())[:3])
+        seq_path = seq_info_dict['seq_path']
+        obj_class = seq_info_dict['class_name']
 
         if anno is None:
             anno = self.get_sequence_info(seq_id)
+        frame_list = [self._get_frame(seq_path, f_id) for f_id in frame_ids]
 
         anno_frames = {}
         for key, value in anno.items():
             anno_frames[key] = [value[f_id, ...].clone() for f_id in frame_ids]
-
         object_meta = OrderedDict({
             'object_class_name': obj_class,
             'motion_class': None,
@@ -196,8 +195,6 @@ class Lasot(BaseVideoDataset):
             'seq_path': str(seq_path),  # Add seq_path (converted to string if it's a Path)
             'obj_class': obj_class  # Optional: redundant, but added if needed for clarity
         })
-        # object_meta = OrderedDict({'object_class_name': obj_class,        #                            'motion_class': None,        #                            'major_class': None,        #                            'root_class': None,        #                            'motion_adverb': None})
-
         return frame_list, anno_frames, object_meta
 
     def get_annos(self, seq_id, frame_ids, anno=None):
