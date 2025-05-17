@@ -176,8 +176,17 @@ class TrackingSampler(torch.utils.data.Dataset):
                                     'search_anno': search_anno['bbox'],
                                     'search_masks': search_masks,
                                     'dataset': dataset.get_name(),
-                                    'test_class': meta_obj_test.get('object_class_name')})
-
+                                    'test_class': meta_obj_test.get('object_class_name'),
+                                    'template_frame_ids':template_frame_ids,
+                                    'search_frame_ids':search_frame_ids,
+                                    'seq_info_dict':seq_info_dict,
+                                    'train_frames_names':meta_obj_train.get('frame_names'),
+                                    'train_frame_paths': meta_obj_train.get('frame_paths'),
+                                   'search_frames_names': meta_obj_test.get('frame_names'),
+                                   'search_frame_paths': meta_obj_test.get('frame_paths')
+                                   # 'meta_obj_train':meta_obj_train,
+                                   # 'meta_obj_test':meta_obj_test
+                                   })
                 data = self.processing(data)
 
                 # check whether data is valid
