@@ -182,7 +182,8 @@ class Lasot(BaseVideoDataset):
         if anno is None:
             anno = self.get_sequence_info(seq_id)
         frame_list = [self._get_frame(seq_path, f_id) for f_id in frame_ids]
-
+        frame_names = [f"{f_id:08d}.jpg" for f_id in frame_ids]  # Adjust format as needed
+        frame_paths = [os.path.join(seq_path, frame_name) for frame_name in frame_names]
         anno_frames = {}
         for key, value in anno.items():
             anno_frames[key] = [value[f_id, ...].clone() for f_id in frame_ids]
@@ -193,7 +194,9 @@ class Lasot(BaseVideoDataset):
             'root_class': None,
             'motion_adverb': None,
             'seq_path': str(seq_path),  # Add seq_path (converted to string if it's a Path)
-            'obj_class': obj_class  # Optional: redundant, but added if needed for clarity
+            'obj_class': obj_class,  # Optional: redundant, but added if needed for clarity
+            'frame_names': frame_names,
+            'frame_paths': frame_paths
         })
         return frame_list, anno_frames, object_meta
 
