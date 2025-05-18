@@ -184,8 +184,7 @@ class TrackingSampler(torch.utils.data.Dataset):
                                     'train_frame_paths': meta_obj_train.get('frame_paths'),
                                    'search_frames_names': meta_obj_test.get('frame_names'),
                                    'search_frame_paths': meta_obj_test.get('frame_paths')
-                                   # 'meta_obj_train':meta_obj_train,
-                                   # 'meta_obj_test':meta_obj_test
+
                                    })
                 data = self.processing(data)
 

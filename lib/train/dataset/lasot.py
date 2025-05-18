@@ -48,6 +48,8 @@ class Lasot(BaseVideoDataset):
             self.sequence_list = random.sample(self.sequence_list, int(len(self.sequence_list)*data_fraction))
 
         self.seq_per_class = self._build_class_list()
+        self.sequence_info= {}
+        self.frames = {}
 
     def _build_sequence_list(self, vid_ids=None, split=None):
         if split is not None:
@@ -123,26 +125,21 @@ class Lasot(BaseVideoDataset):
         return os.path.join(self.root, class_name, class_name + '-' + vid_id)
 
     def get_sequence_info(self, seq_id):
+        self.sequence_info['seq_id'] = seq_id
         seq_name = self.sequence_list[seq_id]
+        self.sequence_info['seq_name'] = seq_name
         class_name = seq_name.split('-')[0]
+        self.sequence_info['class_name'] = class_name
         vid_id = seq_name.split('-')[1]
-
+        self.sequence_info['vid_id'] = vid_id
         seq_path = self._get_sequence_path(seq_id)
+        self.sequence_info['seq_path'] = seq_path
         bbox = self._read_bb_anno(seq_path)
 
         valid = (bbox[:, 2] > 0) & (bbox[:, 3] > 0)
         visible = self._read_target_visible(seq_path) & valid.byte()
 
-        return {
-            'bbox': bbox,
-            'valid': valid,
-            'visible': visible,
-            'seq_path': seq_path,
-            'seq_name': seq_name,
-            'class_name': class_name,
-            'vid_id': vid_id
-        }
-
+        return {'bbox': bbox, 'valid': valid, 'visible': visible}
 
 
 
@@ -162,32 +159,32 @@ class Lasot(BaseVideoDataset):
 
         return obj_class
 
-    def get_frames(self, seq_id, frame_ids, seq_info_dict=None):
-        print(">>> RUNNING MODIFIED get_frames()")
-        print("testing")
-        anno = dict(list(seq_info_dict.items())[:3])
-        seq_path = seq_info_dict['seq_path']
-        obj_class = seq_info_dict['class_name']
+    def get_frames(self, seq_id, frame_ids, anno=None):
+        self.frames['seq_id'] = seq_id
+        self.frames['frame_ids'] = frame_ids
+        seq_path = self._get_sequence_path(seq_id)
+        self.frames['seq_path'] = seq_path
+        obj_class = self._get_class(seq_path)
+        self.frames['obj_class'] = obj_class
 
-        if anno is None:
-            anno = self.get_sequence_info(seq_id)
         frame_list = [self._get_frame(seq_path, f_id) for f_id in frame_ids]
         frame_names = [f"{f_id:08d}.jpg" for f_id in frame_ids]  # Adjust format as needed
-        frame_paths = [os.path.join(seq_path, frame_name) for frame_name in frame_names]
+        frame_paths = [os.path.join(str(seq_path), frame_name) for frame_name in frame_names]
+        self.frames['frame_names'] = frame_names
+        self.frames['frame_paths'] = frame_paths
+        if anno is None:
+            anno = self.get_sequence_info(seq_id)
+
         anno_frames = {}
         for key, value in anno.items():
             anno_frames[key] = [value[f_id, ...].clone() for f_id in frame_ids]
-        object_meta = OrderedDict({
-            'object_class_name': obj_class,
-            'motion_class': None,
-            'major_class': None,
-            'root_class': None,
-            'motion_adverb': None,
-            'seq_path': str(seq_path),  # Add seq_path (converted to string if it's a Path)
-            'obj_class': obj_class,  # Optional: redundant, but added if needed for clarity
-            'frame_names': frame_names,
-            'frame_paths': frame_paths
-        })
+
+        object_meta = OrderedDict({'object_class_name': obj_class,
+                                   'motion_class': None,
+                                   'major_class': None,
+                                   'root_class': None,
+                                   'motion_adverb': None})
+
         return frame_list, anno_frames, object_meta
 
     def get_annos(self, seq_id, frame_ids, anno=None):
