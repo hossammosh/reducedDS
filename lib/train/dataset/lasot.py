@@ -164,7 +164,7 @@ class Lasot(BaseVideoDataset):
 
     def get_frames(self, seq_id, frame_ids, seq_info_dict=None):
         print(">>> RUNNING MODIFIED get_frames()")
-
+        print("testing")
         anno = dict(list(seq_info_dict.items())[:3])
         seq_path = seq_info_dict['seq_path']
         obj_class = seq_info_dict['class_name']
