@@ -173,7 +173,6 @@ class Lasot(BaseVideoDataset):
         frame_names = [f"{f_id:08d}.jpg" for f_id in frame_ids]  # Adjust format as needed
         frame_paths = [os.path.join(seq_path, frame_name) for frame_name in frame_names]
         anno_frames = {}
-        print("lasot.py")
         for key, value in anno.items():
             anno_frames[key] = [value[f_id, ...].clone() for f_id in frame_ids]
         object_meta = OrderedDict({
