@@ -163,6 +163,8 @@ class Lasot(BaseVideoDataset):
         return obj_class
 
     def get_frames(self, seq_id, frame_ids, seq_info_dict=None):
+        print(">>> RUNNING MODIFIED get_frames()")
+
         anno = dict(list(seq_info_dict.items())[:3])
         seq_path = seq_info_dict['seq_path']
         obj_class = seq_info_dict['class_name']
@@ -175,7 +177,6 @@ class Lasot(BaseVideoDataset):
         anno_frames = {}
         for key, value in anno.items():
             anno_frames[key] = [value[f_id, ...].clone() for f_id in frame_ids]
-        print(5)
         object_meta = OrderedDict({
             'object_class_name': obj_class,
             'motion_class': None,
