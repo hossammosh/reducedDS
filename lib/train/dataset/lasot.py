@@ -160,12 +160,9 @@ class Lasot(BaseVideoDataset):
         return obj_class
 
     def get_frames(self, seq_id, frame_ids, anno=None):
-        self.frames['seq_id'] = seq_id
-        self.frames['frame_ids'] = frame_ids
+
         seq_path = self._get_sequence_path(seq_id)
-        self.frames['seq_path'] = seq_path
         obj_class = self._get_class(seq_path)
-        self.frames['obj_class'] = obj_class
 
         frame_list = [self._get_frame(seq_path, f_id) for f_id in frame_ids]
         frame_names = [f"{f_id:08d}.jpg" for f_id in frame_ids]  # Adjust format as needed

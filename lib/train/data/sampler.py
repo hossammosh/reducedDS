@@ -54,6 +54,7 @@ class TrackingSampler(torch.utils.data.Dataset):
         self.num_template_frames = num_template_frames
         self.processing = processing
         self.frame_sample_mode = frame_sample_mode
+        self.data_info={}
 
     def __len__(self):
         return self.samples_per_epoch
@@ -110,11 +111,14 @@ class TrackingSampler(torch.utils.data.Dataset):
         while not valid:
             # Select a dataset
             dataset = random.choices(self.datasets, self.p_datasets)[0]
-
             is_video_dataset = dataset.is_video_sequence()
-
             # sample a sequence from the given dataset
             seq_id, visible, seq_info_dict = self.sample_seq_from_dataset(dataset, is_video_dataset)
+            self.data_info['seq_id'] = seq_id
+            self.data_info['seq_path'] = dataset.sequence_info['seq_path']
+            self.data_info['seq_name'] = dataset.sequence_info['seq_name']
+            self.data_info['class_name'] = dataset.sequence_info['class_name']
+            self.data_info['vid_id'] = dataset.sequence_info['vid_id']
 
             if is_video_dataset:
                 template_frame_ids = None
@@ -162,8 +166,19 @@ class TrackingSampler(torch.utils.data.Dataset):
             try:
                 #seq_info_dict_anno=dict(list(seq_info_dict.items())[:3])
                 template_frames, template_anno, meta_obj_train = dataset.get_frames(seq_id, template_frame_ids,seq_info_dict)
+
+                self.data_info['template_frame_ids'] = template_frame_ids
+                self.data_info['template_frame_names'] = dataset.frames['frame_names']
+                self.data_info['template_frame_path'] = dataset.frames['frame_paths']
+
                 search_frames, search_anno, meta_obj_test = dataset.get_frames(seq_id, search_frame_ids, seq_info_dict)
 
+                self.data_info['search_frame_ids'] = search_frame_ids
+                self.data_info['search_frame_names'] = dataset.frames['frame_names']
+                self.data_info['search_frame_path'] = dataset.frames['frame_paths']
+
+                self.data_info['meta_obj_train'] = meta_obj_train
+                self.data_info['meta_obj_test'] = meta_obj_test
                 H, W, _ = template_frames[0].shape
                 template_masks = template_anno['mask'] if 'mask' in template_anno else [torch.zeros(
                     (H, W))] * self.num_template_frames
@@ -176,15 +191,7 @@ class TrackingSampler(torch.utils.data.Dataset):
                                     'search_anno': search_anno['bbox'],
                                     'search_masks': search_masks,
                                     'dataset': dataset.get_name(),
-                                    'test_class': meta_obj_test.get('object_class_name'),
-                                    'template_frame_ids':template_frame_ids,
-                                    'search_frame_ids':search_frame_ids,
-                                    'seq_info_dict':seq_info_dict,
-                                    'train_frames_names':meta_obj_train.get('frame_names'),
-                                    'train_frame_paths': meta_obj_train.get('frame_paths'),
-                                   'search_frames_names': meta_obj_test.get('frame_names'),
-                                   'search_frame_paths': meta_obj_test.get('frame_paths')
-
+                                    'test_class': meta_obj_test.get('object_class_name')
                                    })
                 data = self.processing(data)
 
@@ -235,6 +242,7 @@ class TrackingSampler(torch.utils.data.Dataset):
 
             # sample a sequence from the given dataset
             seq_id, visible, seq_info_dict = self.sample_seq_from_dataset(dataset, is_video_dataset)
+            sequence_info=dataset.sequence_info
             # sample template and search frame ids
             if is_video_dataset:
                 if self.frame_sample_mode in ["trident", "trident_pro"]:
@@ -311,7 +319,7 @@ class TrackingSampler(torch.utils.data.Dataset):
         count = 0
         while not enough_visible_frames:
             # Sample a sequence
-            seq_id = random.randint(0, dataset.get_num_sequences() - 1) # sequence in here means one of the videos tuned for training
+            seq_id = random.randint(0, dataset.get_num_sequences() - 1)
             # Sample frames
             seq_info_dict = dataset.get_sequence_info(seq_id)
             visible = seq_info_dict['visible']

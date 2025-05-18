@@ -62,7 +62,7 @@ class LTRTrainer(BaseTrainer):
 
         for i, data in enumerate(loader, 1):
 
-            print("start")
+           # print("start")
             # get inputs
             if self.move_data_to_gpu:
                 data = data.to(self.device)
