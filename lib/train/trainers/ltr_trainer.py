@@ -59,10 +59,10 @@ class LTRTrainer(BaseTrainer):
 
         self._init_timing()
         print(self.epoch)
-        print(loader.training)
 
         for i, data in enumerate(loader, 1):
-            # print("start")
+
+            print("start")
             # get inputs
             if self.move_data_to_gpu:
                 data = data.to(self.device)

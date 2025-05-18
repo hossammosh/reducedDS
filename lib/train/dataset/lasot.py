@@ -143,19 +143,7 @@ class Lasot(BaseVideoDataset):
             'vid_id': vid_id
         }
 
-    # def get_sequence_info(self, seq_id):
-    #     seq_path = self._get_sequence_path(seq_id)
-    #     bbox = self._read_bb_anno(seq_path)
-    #
-    #     valid = (bbox[:, 2] > 0) & (bbox[:, 3] > 0)
-    #     visible = self._read_target_visible(seq_path) & valid.byte()
-    #
-    #     return {
-    #         'bbox': bbox,
-    #         'valid': valid,
-    #         'visible': visible,
-    #         'seq_path': seq_path  # Added seq_path to the return dict
-    #     }
+
 
 
     def _get_frame_path(self, seq_path, frame_id):
