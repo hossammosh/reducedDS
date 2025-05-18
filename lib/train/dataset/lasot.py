@@ -175,6 +175,7 @@ class Lasot(BaseVideoDataset):
         anno_frames = {}
         for key, value in anno.items():
             anno_frames[key] = [value[f_id, ...].clone() for f_id in frame_ids]
+        print(5)
         object_meta = OrderedDict({
             'object_class_name': obj_class,
             'motion_class': None,
