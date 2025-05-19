@@ -19,9 +19,12 @@ def _check_use_shared_memory():
 
 def ltr_collate(batch):
     """Puts each data field into a tensor with outer dimension batch size"""
-
+    print('batch = ', batch)
     error_msg = "batch must contain tensors, numbers, dicts or lists; found {}"
     elem_type = type(batch[0])
+
+
+
     if isinstance(batch[0], torch.Tensor):
         out = None
         if _check_use_shared_memory():

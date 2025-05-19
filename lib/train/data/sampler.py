@@ -95,7 +95,7 @@ class TrackingSampler(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
 
-
+        print('index = ',index )
         if self.train_cls:
             return self.getitem_cls()
         else:
@@ -177,8 +177,6 @@ class TrackingSampler(torch.utils.data.Dataset):
                 self.data_info['search_frame_names'] = dataset.frames['frame_names']
                 self.data_info['search_frame_path'] = dataset.frames['frame_paths']
 
-                self.data_info['meta_obj_train'] = meta_obj_train
-                self.data_info['meta_obj_test'] = meta_obj_test
                 H, W, _ = template_frames[0].shape
                 template_masks = template_anno['mask'] if 'mask' in template_anno else [torch.zeros(
                     (H, W))] * self.num_template_frames
