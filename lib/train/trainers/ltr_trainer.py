@@ -53,7 +53,7 @@ class LTRTrainer(BaseTrainer):
 
     def cycle_dataset(self, loader):
         """Do a cycle of training or validation."""
-
+        print('start tracking...')
         self.actor.train(loader.training)
         torch.set_grad_enabled(loader.training)
 
