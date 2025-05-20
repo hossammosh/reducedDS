@@ -71,7 +71,9 @@ def ltr_collate(batch):
 
 def ltr_collate_stack1(batch):
     """Puts each data field into a tensor. The tensors are stacked at dim=1 to form the batch"""
+    breakpoint()
     print('ltr_collate_stack1 batch = ')
+    #breakpoint()
     error_msg = "batch must contain tensors, numbers, dicts or lists; found {}"
     elem_type = type(batch[0])
     if isinstance(batch[0], torch.Tensor):
