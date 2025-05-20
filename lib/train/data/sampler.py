@@ -94,6 +94,7 @@ class TrackingSampler(torch.utils.data.Dataset):
         return random.choices(valid_ids, k=num_ids)
 
     def __getitem__(self, index):
+        breakpoint()
         worker_info = torch.utils.data.get_worker_info()
         worker_id = worker_info.id if worker_info else -1
         print(f"worker {worker_id}, index = {index}")
