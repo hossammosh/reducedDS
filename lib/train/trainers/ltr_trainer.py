@@ -9,7 +9,7 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.cuda.amp import autocast
 from torch.cuda.amp import GradScaler
 import lib.utils.misc as misc
-
+from lib.train.data_recorder import log_data, save_log
 
 class LTRTrainer(BaseTrainer):
     def __init__(self, actor, loaders, optimizer, settings, lr_scheduler=None, use_amp=False):
@@ -56,13 +56,9 @@ class LTRTrainer(BaseTrainer):
         print('start tracking...')
         self.actor.train(loader.training)
         torch.set_grad_enabled(loader.training)
-
         self._init_timing()
         print('epoch no.= ',self.epoch)
-
         for i, data in enumerate(loader, 1):
-
-           # print("start")
             # get inputs
             if self.move_data_to_gpu:
                 data = data.to(self.device)
@@ -75,7 +71,8 @@ class LTRTrainer(BaseTrainer):
             else:
                 with autocast():
                     loss, stats = self.actor(data)
-
+            log_data(stats)
+            log_data({"loss": loss.item()})
             # backward pass and update weights
             if loader.training:
                 self.optimizer.zero_grad()

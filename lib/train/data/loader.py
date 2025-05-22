@@ -19,7 +19,6 @@ def _check_use_shared_memory():
 
 def ltr_collate(batch):
     """Puts each data field into a tensor with outer dimension batch size"""
-    print('ltr_collate error batch = ')
     error_msg = "batch must contain tensors, numbers, dicts or lists; found {}"
     elem_type = type(batch[0])
 
@@ -71,9 +70,8 @@ def ltr_collate(batch):
 
 def ltr_collate_stack1(batch):
     """Puts each data field into a tensor. The tensors are stacked at dim=1 to form the batch"""
-    breakpoint()
-    print('ltr_collate_stack1 batch = ')
     #breakpoint()
+    #print('ltr_collate_stack1 batch = ')
     error_msg = "batch must contain tensors, numbers, dicts or lists; found {}"
     elem_type = type(batch[0])
     if isinstance(batch[0], torch.Tensor):
@@ -84,18 +82,7 @@ def ltr_collate_stack1(batch):
             numel = sum([x.numel() for x in batch])
             storage = batch[0].storage()._new_shared(numel)
             out = batch[0].new(storage)
-            # len(batch)
-            # 16
-            # batch[0].shape
-            # torch.Size([1, 3, 192, 192])
-            # out.shape
-            # torch.Size([1769472])
         return torch.stack(batch, 1, out=out.resize_(0))
-            # out.shape
-            # torch.Size([1, 16, 3, 192, 192])
-        # if batch[0].dim() < 4:
-        #     return torch.stack(batch, 0, out=out)
-        # return torch.cat(batch, 0, out=out)
     elif elem_type.__module__ == 'numpy' and elem_type.__name__ != 'str_' \
             and elem_type.__name__ != 'string_':
         elem = batch[0]

@@ -8,9 +8,8 @@ import torch.distributed as dist
 
 import random
 import numpy as np
+from data_recorder import log_data, save_log
 torch.backends.cudnn.benchmark = False
-
-#import _init_paths
 import lib.train.admin.settings as ws_settings
 
 
@@ -30,6 +29,9 @@ def run_training(script_name, config_name, cudnn_benchmark=True, local_rank=-1, 
         config_name: Name of the yaml file in the "experiments/<script_name>".
         cudnn_benchmark: Use cudnn benchmark or not (default is True).
     """
+
+    # Manually call this when you're done
+    #save_log()
     if save_dir is None:
         print("save_dir dir is not given. Use the default dir instead.")
     # This is needed to avoid strange crashes related to opencv
