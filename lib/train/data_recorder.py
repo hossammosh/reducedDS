@@ -4,9 +4,8 @@ from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter
 
 # Global sample index
-sample_index = 0
+#sample_index = 0
 
-# Output Excel file name
 FILENAME = 'log_data.xlsx'
 
 # Initialize a new Excel workbook with header

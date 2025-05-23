@@ -2,8 +2,6 @@ import random
 import torch.utils.data
 from lib.utils import TensorDict
 import numpy as np
-#from lib.train.data_recorder import log_data
-import lib.train.data_recorder as data_recorder
 def no_processing(data):
     return data
 
@@ -53,7 +51,7 @@ class TrackingSampler(torch.utils.data.Dataset):
         self.num_template_frames = num_template_frames
         self.processing = processing
         self.frame_sample_mode = frame_sample_mode
-        data_info={}
+        #data_info={}
 
     def __len__(self):
         return self.samples_per_epoch
@@ -93,14 +91,13 @@ class TrackingSampler(torch.utils.data.Dataset):
         return random.choices(valid_ids, k=num_ids)
 
     def __getitem__(self, index):
-        #info = get_worker_info()        print(index,info)
-        #breakpoint()
-        #data_recorder.sample_index=index
-
+        #breakpoint()        #data_recorder.sample_index=index
         if self.train_cls:
             return self.getitem_cls()
         else:
-            return self.getitem(),index
+            v=self.getitem()
+            return  (*v, index)
+
 
     def getitem(self):
         """
@@ -117,7 +114,6 @@ class TrackingSampler(torch.utils.data.Dataset):
             # sample a sequence from the given dataset
             seq_id, visible, seq_info_dict = self.sample_seq_from_dataset(dataset, is_video_dataset)
             data_info['seq_id'] = seq_id
-            #data_info['seq_id'] = seq_id
             data_info['seq_path'] = dataset.sequence_info['seq_path']
             data_info['seq_name'] = dataset.sequence_info['seq_name']
             data_info['class_name'] = dataset.sequence_info['class_name']
@@ -167,9 +163,7 @@ class TrackingSampler(torch.utils.data.Dataset):
                 template_ids = [1] * self.num_template_frames
                 search_id = [1] * self.num_search_frames
             try:
-                #seq_info_dict_anno=dict(list(seq_info_dict.items())[:3])
                 template_frames, template_anno, meta_obj_train = dataset.get_frames(seq_id, template_ids,seq_info_dict)
-
                 data_info['template_ids'] = template_ids
                 data_info['template_names'] = dataset.frames['frame_names']
                 data_info['template_path'] = dataset.frames['frame_paths']
@@ -195,7 +189,6 @@ class TrackingSampler(torch.utils.data.Dataset):
                                     'test_class': meta_obj_test.get('object_class_name')
                                    })
                 data = self.processing(data)
-
                 # check whether data is valid
                 valid = data['valid']
             except:
@@ -205,14 +198,8 @@ class TrackingSampler(torch.utils.data.Dataset):
             if count_valid > 200:
                 print("too large count_valid")
                 print(str(count_valid))
-        #log_data(data_info)
-        #save_log()
-        #g_data_info=data_info
-        #breakpoint()
-        #data_recorder.log_data(data_info)
-        #return data
 
-        return data
+        return data, data_info
 
 
     def show(self, data, strr, i):

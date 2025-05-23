@@ -6,12 +6,6 @@ import collections
 string_classes = (str, bytes)
 int_classes = int
 from lib.utils import TensorDict, TensorList
-from torch.utils.data import   get_worker_info
-#from lib.train.data.sampler import g_data_info
-
-a={}
-b={}
-
 def _check_use_shared_memory():
     if hasattr(torch.utils.data.dataloader, '_use_shared_memory'):
         return getattr(torch.utils.data.dataloader, '_use_shared_memory')
@@ -19,7 +13,6 @@ def _check_use_shared_memory():
     if hasattr(collate_lib, '_use_shared_memory'):
         return getattr(collate_lib, '_use_shared_memory')
     return torch.utils.data.get_worker_info() is not None
-
 
 def ltr_collate(batch):
     """Puts each data field into a tensor with outer dimension batch size"""
@@ -71,20 +64,16 @@ def ltr_collate(batch):
 
     raise TypeError((error_msg.format(type(batch[0]))))
 
-
 def ltr_collate_stack1(batch):
-
     #breakpoint()
-    # global a, b
-    #global g_data_info
     #print('ltr_collate_stack1 batch = ')
-    # if isinstance(batch[0], tuple) and len(batch[0]) == 2:
-    #     a=batch[0][0]
-    #     b=batch[0][1]
-    #     batch[0] = (batch[0][0],)
-    if isinstance(batch[0], tuple) and len(batch[0]) == 2:
-        batch[0] = (batch[0][0],)
-    #print('ltr_collate_stack1 batch = ', batch
+    if isinstance(batch[0], tuple) and len(batch[0]) == 3:
+        new_batch=batch[0][0]
+        data_info=batch[0][1]
+        sample_index=batch[0][2]
+        batch[0] = new_batch
+        return(ltr_collate_stack1(batch),data_info,sample_index)
+
     error_msg = "batch must contain tensors, numbers, dicts or lists; found {}"
     elem_type = type(batch[0])
     if isinstance(batch[0], torch.Tensor):
