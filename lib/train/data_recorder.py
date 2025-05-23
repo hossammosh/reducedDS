@@ -1,159 +1,200 @@
 import os
-import pandas as pd
-from datetime import datetime
-from openpyxl import load_workbook, Workbook
-from openpyxl.utils import get_column_letter
-from openpyxl.worksheet.dimensions import ColumnDimension
+from openpyxl import Workbook
 from openpyxl.styles import Alignment
+from openpyxl.utils import get_column_letter
 
-# Primary key columns
-PRIMARY_KEYS = ['seq_name', 'template_ids', 'search_id']
+# Global sample index
+sample_index = 0
 
-# Persistent DataFrame and Excel filename
-_session_df = pd.DataFrame(columns=PRIMARY_KEYS)
-_excel_file = None
-_last_row_index = None
+# Output Excel file name
+FILENAME = 'log_data.xlsx'
 
-# Columns to merge across 2 rows
-MERGE_COLUMNS = [
-    'seq_name', 'search_id',
-    'seq_id', 'seq_path', 'class_name', 'vid_id',
-    'search_frame_names', 'search_frame_path'
-]
-
-# Columns to span 2 rows but remain unmerged
-UNMERGED_TWO_ROW_COLUMNS = [
-    'template_ids', 'template_frame_path'
-]
-def _init_log_file():
-    global _excel_file
-    if _excel_file is None:
-        _excel_file = "log_data.xlsx"
-    return _excel_file
-
-def _adjust_column_widths(ws):
-    for col in ws.columns:
-        max_length = 0
-        col_letter = get_column_letter(col[0].column)
-        for cell in col:
-            try:
-                if cell.value:
-                    max_length = max(max_length, len(str(cell.value)))
-            except:
-                pass
-        adjusted_width = max_length + 2
-        ws.column_dimensions[col_letter].width = adjusted_width
-
-def _write_custom_excel(df, filename):
+# Initialize a new Excel workbook with header
+def init_excel():
     wb = Workbook()
     ws = wb.active
+    ws.title = "DataInfo"
 
-    columns = list(df.columns)
-    col_letters = {}
+    # Corrected header row without duplicates
+    headers = [
+        "Index", "Sample Index", "Seq Name",
+        "Template Frame ID", "Template Frame Path",
+        "Search Frame ID",
+        "Seq ID", "Seq Path", "Class Name", "Vid ID", "Search Names", "Search Path"
+    ]
+    ws.append(headers)
+    _format_cells(ws)
+    return wb, ws
 
+# Apply alignment and sizing
+def _format_cells(ws):
+    align = Alignment(horizontal='center', vertical='center', wrap_text=True)
 
-    col_index = 1
-    for col in columns:
-        col_letter = get_column_letter(col_index)
-        col_letters[col] = col_letter
+    for row in ws.iter_rows():
+        for cell in row:
+            cell.alignment = align
 
-        if col in MERGE_COLUMNS:
-            ws.merge_cells(start_row=1, start_column=col_index, end_row=2, end_column=col_index)
-            cell = ws.cell(row=1, column=col_index, value=col)
-            cell.alignment = Alignment(horizontal='center', vertical='center')
-        elif col in UNMERGED_TWO_ROW_COLUMNS:
-            ws.cell(row=1, column=col_index, value=col + "_1")
-            ws.cell(row=2, column=col_index, value=col + "_2")
+    for col in ws.columns:
+        max_length = max(len(str(cell.value)) if cell.value else 0 for cell in col)
+        col_letter = get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max_length + 4
+
+    for row in ws.iter_rows():
+        ws.row_dimensions[row[0].row].height = 25
+
+# Logging function
+def log_data(data_info: dict):
+    global sample_index
+
+    # Create a fresh workbook each time (overwrite previous file)
+    wb, ws = init_excel()
+
+    start_row = 2
+    end_row = start_row + 1
+
+    # Merge columns vertically for rows 2 and 3 (adjusted columns)
+    merge_columns = [1, 2, 3, 6, 7, 8, 9, 10, 11, 12]
+    for col in merge_columns:
+        ws.merge_cells(start_row=start_row, start_column=col, end_row=end_row, end_column=col)
+
+    # Helper to safely convert lists to string (first element fallback)
+    def safe_str_list(value, idx=0):
+        if isinstance(value, list):
+            if len(value) > idx:
+                elem = value[idx]
+                if isinstance(elem, list):
+                    return ", ".join(map(str, elem))
+                else:
+                    return str(elem)
+            else:
+                return ""
+        elif value is None:
+            return ""
         else:
-            ws.merge_cells(start_row=1, start_column=col_index, end_row=2, end_column=col_index)
-            cell = ws.cell(row=1, column=col_index, value=col)
-            cell.alignment = Alignment(horizontal='center', vertical='center')
+            return str(value)
 
-        col_index += 1
+    # Write row 1 values (merged and unmerged)
+    ws.cell(row=start_row, column=1, value=1)
+    ws.cell(row=start_row, column=2, value=sample_index)
+    ws.cell(row=start_row, column=3, value=data_info.get("seq_name", ""))
+    ws.cell(row=start_row, column=4, value=safe_str_list(data_info.get("template_ids"), 0))
+    ws.cell(row=start_row, column=5, value=safe_str_list(data_info.get("template_path"), 0))
+    ws.cell(row=start_row, column=6, value=safe_str_list(data_info.get("search_id")))
+    ws.cell(row=start_row, column=7, value=data_info.get("seq_id", ""))
+    ws.cell(row=start_row, column=8, value=data_info.get("seq_path", ""))
+    ws.cell(row=start_row, column=9, value=data_info.get("class_name", ""))
+    ws.cell(row=start_row, column=10, value=data_info.get("vid_id", ""))
+    ws.cell(row=start_row, column=11, value=", ".join(map(str, data_info.get("search_names", []))))
+    ws.cell(row=start_row, column=12, value=", ".join(map(str, data_info.get("search_path", []))))
 
-    # Write data starting from row 3
-    for row_idx, row in df.iterrows():
-        for col_idx, col in enumerate(columns, start=1):
-            value = row[col]
-            ws.cell(row=row_idx + 3, column=col_idx, value=str(value))
+    # Write row 2 values (template frame IDs and paths)
+    ws.cell(row=end_row, column=4, value=safe_str_list(data_info.get("template_ids"), 1))
+    ws.cell(row=end_row, column=5, value=safe_str_list(data_info.get("template_path"), 1))
 
-    _adjust_column_widths(ws)
-    wb.save(filename)
-def log_data(data_info):
-    global _session_df, _last_row_index
-    excel_file = _init_log_file()
+    _format_cells(ws)
 
-    if all(k in data_info for k in PRIMARY_KEYS):
-        # Primary key info is provided — insert/update as normal
-        key_values = {
-            'seq_name': str(data_info['seq_name']),
-            'template_ids': str(data_info['template_ids']),
-            'search_id': str(data_info['search_id'])
-        }
+    # Save to file
+    wb.save(FILENAME)
+    sample_index += 1
 
-        # Find match
-        match = (_session_df[PRIMARY_KEYS] == pd.Series(key_values)).all(axis=1) if not _session_df.empty else pd.Series([False])
-        if match.any():
-            idx = match.idxmax()
-            _last_row_index = idx
-            for k, v in data_info.items():
-                if k not in _session_df.columns:
-                    _session_df[k] = None
-                _session_df.at[idx, k] = v
-        else:
-            new_row = {**key_values, **data_info}
-            for k in new_row:
-                if k not in _session_df.columns:
-                    _session_df[k] = None
-            _session_df = pd.concat([_session_df, pd.DataFrame([new_row])], ignore_index=True)
-            _last_row_index = len(_session_df) - 1
-    else:
-        # No primary key info — update last known row
-        if _last_row_index is None:
-            raise ValueError("No previous primary key set to update.")
-        for k, v in data_info.items():
-            if k not in _session_df.columns:
-                _session_df[k] = None
-            _session_df.at[_last_row_index, k] = v
 
-    _write_custom_excel(_session_df, excel_file)
-
-# def log_data(data_info):
-#     global _session_df
-#     excel_file = _init_log_file()
+# import os
+# from openpyxl import Workbook
+# from openpyxl.styles import Alignment
+# from openpyxl.utils import get_column_letter
 #
-#     # Ensure primary key values are strings
-#     key_values = {
-#         'seq_name': str(data_info['seq_name']),
-#         'template_ids': str(data_info['template_ids']),
-#         'search_id': str(data_info['search_id'])
-#     }
+# # Global sample index
+# sample_index = 0
 #
-#     # Search for existing row
-#     match = (_session_df[PRIMARY_KEYS] == pd.Series(key_values)).all(axis=1) if not _session_df.empty else pd.Series([False])
+# # Output Excel file name
+# FILENAME = 'log_data.xlsx'
 #
-#     if match.any():
-#         idx = match.idxmax()
-#         for k, v in data_info.items():
-#             if k not in _session_df.columns:
-#                 _session_df[k] = None
-#             _session_df.at[idx, k] = v
-#     else:
-#         new_row = {**key_values, **data_info}
-#         for k in new_row:
-#             if k not in _session_df.columns:
-#                 _session_df[k] = None
-#         _session_df = pd.concat([_session_df, pd.DataFrame([new_row])], ignore_index=True)
+# # Initialize a new Excel workbook with header
+# def init_excel():
+#     wb = Workbook()
+#     ws = wb.active
+#     ws.title = "DataInfo"
 #
-#     # Save after every log call
-#     _write_custom_excel(_session_df, excel_file)
-
-
-def save_log():
-    if _session_df.empty:
-        print("No data to save.")
-        return
-    excel_file = _init_log_file()
-    _write_custom_excel(_session_df, excel_file)
-    print(f"Log saved to: {excel_file}")
-
+#     # Header row
+#     headers = [
+#         "Index", "Sample Index", "Seq Name",
+#         "Template Frame IDs", "Template Frame IDs",
+#         "Template Frame Path", "Template Frame Path",
+#         "Search Frame ID",
+#         "Seq ID", "Seq Path", "Class Name", "Vid ID", "Search Names", "Search Path"
+#     ]
+#     ws.append(headers)
+#     _format_cells(ws)
+#     return wb, ws
+#
+# # Apply alignment and sizing
+# def _format_cells(ws):
+#     align = Alignment(horizontal='center', vertical='center', wrap_text=True)
+#
+#     for row in ws.iter_rows():
+#         for cell in row:
+#             cell.alignment = align
+#
+#     for col in ws.columns:
+#         max_length = max(len(str(cell.value)) if cell.value else 0 for cell in col)
+#         col_letter = get_column_letter(col[0].column)
+#         ws.column_dimensions[col_letter].width = max_length + 4
+#
+#     for row in ws.iter_rows():
+#         ws.row_dimensions[row[0].row].height = 25
+#
+# # Logging function
+# def log_data(data_info: dict):
+#     global sample_index
+#
+#     # Create a fresh workbook each time (overwrite previous file)
+#     wb, ws = init_excel()
+#
+#     start_row = 2
+#     end_row = start_row + 1
+#
+#     # Merge columns vertically for rows 2 and 3
+#     merge_columns = [1, 2, 3, 8, 9, 10, 11, 12, 13, 14]
+#     for col in merge_columns:
+#         ws.merge_cells(start_row=start_row, start_column=col, end_row=end_row, end_column=col)
+#
+#     # Helper to safely convert lists to string (first element fallback)
+#     def safe_str_list(value, idx=0):
+#         if isinstance(value, list):
+#             if len(value) > idx:
+#                 elem = value[idx]
+#                 if isinstance(elem, list):
+#                     return ", ".join(map(str, elem))
+#                 else:
+#                     return str(elem)
+#             else:
+#                 return ""
+#         elif value is None:
+#             return ""
+#         else:
+#             return str(value)
+#
+#     # Write row 1 values (merged and unmerged)
+#     ws.cell(row=start_row, column=1, value=1)
+#     ws.cell(row=start_row, column=2, value=sample_index)
+#     ws.cell(row=start_row, column=3, value=data_info.get("seq_name", ""))
+#     ws.cell(row=start_row, column=4, value=safe_str_list(data_info.get("template_ids"), 0))
+#     ws.cell(row=start_row, column=6, value=safe_str_list(data_info.get("template_path"), 0))
+#     ws.cell(row=start_row, column=8, value=safe_str_list(data_info.get("search_id")))
+#     ws.cell(row=start_row, column=9, value=data_info.get("seq_id", ""))
+#     ws.cell(row=start_row, column=10, value=data_info.get("seq_path", ""))
+#     ws.cell(row=start_row, column=11, value=data_info.get("class_name", ""))
+#     ws.cell(row=start_row, column=12, value=data_info.get("vid_id", ""))
+#     ws.cell(row=start_row, column=13, value=", ".join(map(str, data_info.get("search_names", []))))
+#     ws.cell(row=start_row, column=14, value=", ".join(map(str, data_info.get("search_path", []))))
+#
+#     # Write row 2 values (template frame IDs and paths)
+#     ws.cell(row=end_row, column=4, value=safe_str_list(data_info.get("template_ids"), 1))
+#     ws.cell(row=end_row, column=6, value=safe_str_list(data_info.get("template_path"), 1))
+#
+#     _format_cells(ws)
+#
+#     # Save to file
+#     wb.save(FILENAME)
+#     sample_index += 1
+#

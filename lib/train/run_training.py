@@ -8,7 +8,6 @@ import torch.distributed as dist
 
 import random
 import numpy as np
-from data_recorder import log_data, save_log
 torch.backends.cudnn.benchmark = False
 import lib.train.admin.settings as ws_settings
 

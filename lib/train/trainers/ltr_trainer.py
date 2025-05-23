@@ -9,7 +9,8 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.cuda.amp import autocast
 from torch.cuda.amp import GradScaler
 import lib.utils.misc as misc
-from lib.train.data_recorder import log_data, save_log
+from lib.train.data_recorder import log_data
+import lib.train.data_recorder as data_recorder
 
 class LTRTrainer(BaseTrainer):
     def __init__(self, actor, loaders, optimizer, settings, lr_scheduler=None, use_amp=False):
@@ -60,6 +61,8 @@ class LTRTrainer(BaseTrainer):
         print('epoch no.= ',self.epoch)
         for i, data in enumerate(loader, 1):
             # get inputs
+            print (data_recorder.sample_index)
+
             if self.move_data_to_gpu:
                 data = data.to(self.device)
 

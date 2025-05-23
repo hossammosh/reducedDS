@@ -6,7 +6,11 @@ import collections
 string_classes = (str, bytes)
 int_classes = int
 from lib.utils import TensorDict, TensorList
+from torch.utils.data import   get_worker_info
+#from lib.train.data.sampler import g_data_info
 
+a={}
+b={}
 
 def _check_use_shared_memory():
     if hasattr(torch.utils.data.dataloader, '_use_shared_memory'):
@@ -69,16 +73,23 @@ def ltr_collate(batch):
 
 
 def ltr_collate_stack1(batch):
-    """Puts each data field into a tensor. The tensors are stacked at dim=1 to form the batch"""
+
     #breakpoint()
+    # global a, b
+    #global g_data_info
     #print('ltr_collate_stack1 batch = ')
+    # if isinstance(batch[0], tuple) and len(batch[0]) == 2:
+    #     a=batch[0][0]
+    #     b=batch[0][1]
+    #     batch[0] = (batch[0][0],)
+    if isinstance(batch[0], tuple) and len(batch[0]) == 2:
+        batch[0] = (batch[0][0],)
+    #print('ltr_collate_stack1 batch = ', batch
     error_msg = "batch must contain tensors, numbers, dicts or lists; found {}"
     elem_type = type(batch[0])
     if isinstance(batch[0], torch.Tensor):
         out = None
         if _check_use_shared_memory():
-            # If we're in a background process, concatenate directly into a
-            # shared memory tensor to avoid an extra copy
             numel = sum([x.numel() for x in batch])
             storage = batch[0].storage()._new_shared(numel)
             out = batch[0].new(storage)
@@ -113,7 +124,6 @@ def ltr_collate_stack1(batch):
         return [ltr_collate_stack1(samples) for samples in transposed]
     elif batch[0] is None:
         return batch
-
     raise TypeError((error_msg.format(type(batch[0]))))
 
 
