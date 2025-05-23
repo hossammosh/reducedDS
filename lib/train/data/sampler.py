@@ -94,13 +94,13 @@ class TrackingSampler(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         #info = get_worker_info()        print(index,info)
-        breakpoint()
-        data_recorder.sample_index=index
+        #breakpoint()
+        #data_recorder.sample_index=index
 
         if self.train_cls:
             return self.getitem_cls()
         else:
-            return self.getitem()
+            return self.getitem(),index
 
     def getitem(self):
         """
@@ -209,7 +209,9 @@ class TrackingSampler(torch.utils.data.Dataset):
         #save_log()
         #g_data_info=data_info
         #breakpoint()
-        data_recorder.log_data(data_info)
+        #data_recorder.log_data(data_info)
+        #return data
+
         return data
 
 

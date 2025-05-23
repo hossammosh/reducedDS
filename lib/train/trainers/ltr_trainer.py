@@ -59,7 +59,9 @@ class LTRTrainer(BaseTrainer):
         torch.set_grad_enabled(loader.training)
         self._init_timing()
         print('epoch no.= ',self.epoch)
+        #for i, data in enumerate(loader, 1):
         for i, data in enumerate(loader, 1):
+
             # get inputs
             print (data_recorder.sample_index)
 
