@@ -4,7 +4,7 @@ import torch
 import traceback
 from lib.train.admin import multigpu
 from torch.utils.data.distributed import DistributedSampler
-
+from lib.train.run_training import init_seeds
 
 class BaseTrainer:
     """Base trainer class. Contains functions for training and saving/loading checkpoints.
@@ -80,6 +80,7 @@ class BaseTrainer:
                     directory_teacher = '{}/{}'.format(self._checkpoint_dir, self.settings.project_path_teacher)
                     self.load_state_dict(directory_teacher, distill=True)
                 for epoch in range(self.epoch+1, max_epochs+1):
+                    init_seeds(42)
                     self.epoch = epoch
 
                     self.train_epoch()
