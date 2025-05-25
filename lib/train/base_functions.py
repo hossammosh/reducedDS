@@ -15,13 +15,17 @@ def update_settings(settings, cfg):
     settings.output_sz = {'template': getattr(cfg.DATA.TEMPLATE, "SIZE", 128),
                           'search': getattr(cfg.DATA.SEARCH, "SIZE", 256)}
     settings.center_jitter_factor = {'template': getattr(cfg.DATA.TEMPLATE, "CENTER_JITTER", None),
-                                     'search':getattr(cfg.DATA.SEARCH, "CENTER_JITTER", None)}
+                                     'search': getattr(cfg.DATA.SEARCH, "CENTER_JITTER", None)}
     settings.scale_jitter_factor = {'template': getattr(cfg.DATA.TEMPLATE, "SCALE_JITTER", None),
                                     'search': getattr(cfg.DATA.SEARCH, "SCALE_JITTER", None)}
     settings.grad_clip_norm = cfg.TRAIN.GRAD_CLIP_NORM
     settings.print_stats = None
     settings.batchsize = cfg.TRAIN.BATCH_SIZE
     settings.scheduler_type = cfg.TRAIN.SCHEDULER.TYPE
+
+    # ADD THESE TWO LINES:
+    settings.log_data_frequency = getattr(cfg.TRAIN, "LOG_DATA_FREQUENCY", 100)
+    settings.time_printing_frequency = getattr(cfg.TRAIN, "TIME_PRINTING_FREQUENCY", 10)
 
 
 def names2datasets(name_list: list, settings, image_loader):

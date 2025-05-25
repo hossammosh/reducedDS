@@ -9,8 +9,9 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.cuda.amp import autocast
 from torch.cuda.amp import GradScaler
 import lib.utils.misc as misc
-#from lib.train.data_recorder import log_data
+# from lib.train.data_recorder import log_data
 import lib.train.data_recorder as data_recorder
+
 
 class LTRTrainer(BaseTrainer):
     def __init__(self, actor, loaders, optimizer, settings, lr_scheduler=None, use_amp=False):
@@ -39,7 +40,7 @@ class LTRTrainer(BaseTrainer):
         # ----- Modification Start: Define and Create Checkpoint Directory -----
         print("--- Modifying ltr_trainer: Defining checkpoint directory ---")
         self.checkpoint_dir = os.path.join(self.settings.env.workspace_dir, self.settings.project_path, "checkpoints")
-        if self.settings.local_rank in [-1, 0]: # Only main process creates directory
+        if self.settings.local_rank in [-1, 0]:  # Only main process creates directory
             if not os.path.exists(self.checkpoint_dir):
                 os.makedirs(self.checkpoint_dir)
                 print(f"--- ltr_trainer: Created checkpoint directory at: {self.checkpoint_dir} ---")
@@ -53,11 +54,16 @@ class LTRTrainer(BaseTrainer):
         if use_amp:
             self.scaler = GradScaler()
 
+        # ----- NEW: Initialize iteration counter for Excel logging frequency -----
+        self.iteration_counter = 0
+
     def _set_default_settings(self):
         # Dict of all default values
         default = {'print_interval': 10,
                    'print_stats': None,
-                   'description': ''}
+                   'description': '',
+                   'log_data_frequency': 50,  # ADD THIS LINE
+                   'time_printing_frequency': 5}  # ADD THIS LINE
 
         for param, default_value in default.items():
             if getattr(self.settings, param, None) is None:
@@ -69,9 +75,15 @@ class LTRTrainer(BaseTrainer):
         self.actor.train(loader.training)
         torch.set_grad_enabled(loader.training)
         self._init_timing()
-        print('epoch no.= ',self.epoch)
+        print('epoch no.= ', self.epoch)
+
+        # ----- NEW: Initialize timing variables for manual control -----
+        self.last_time_print = time.time()
+
         for i, data in enumerate(loader, 1):
-            data_info=data[1]
+            self.iteration_counter += 1  # NEW: Increment global iteration counter
+
+            data_info = data[1]
             sample_index = data[2]
             data = data[0]
 
@@ -86,7 +98,13 @@ class LTRTrainer(BaseTrainer):
             else:
                 with autocast():
                     loss, stats = self.actor(data)
-            data_recorder.log_data(sample_index, data_info, stats)
+
+            # ----- MODIFIED: Excel data logging with frequency control -----
+            if self.iteration_counter % self.settings.log_data_frequency == 0:
+                data_recorder.log_data(sample_index, data_info, stats)
+                print(
+                    f"Excel data logged at iteration {self.iteration_counter} (every {self.settings.log_data_frequency} iterations)")
+
             # backward pass and update weights
             if loader.training:
                 self.optimizer.zero_grad()
@@ -108,7 +126,6 @@ class LTRTrainer(BaseTrainer):
 
             # print statistics
             self._print_stats(i, loader, batch_size)
-
 
     def train_epoch(self):
         """Do one epoch for each loader."""
@@ -154,15 +171,19 @@ class LTRTrainer(BaseTrainer):
         batch_fps = batch_size / (current_time - self.prev_time)
         average_fps = self.num_frames / (current_time - self.start_time)
         self.prev_time = current_time
-        if i % self.settings.print_interval == 0 or i == loader.__len__():
+
+        # ----- MODIFIED: Manual time printing frequency control -----
+        should_print_stats = i % self.settings.print_interval == 0 or i == loader.__len__()
+        should_print_timing = (current_time - self.last_time_print) >= (
+                    self.settings.time_printing_frequency * 60) or i == loader.__len__()
+
+        if should_print_stats:
             print_str = '[%s: %d, %d / %d] ' % (loader.name, self.epoch, i, loader.__len__())
             print_str += 'FPS: %.1f (%.1f)  ,  ' % (average_fps, batch_fps)
             for name, val in self.stats[loader.name].items():
                 if (self.settings.print_stats is None or name in self.settings.print_stats):
                     if hasattr(val, 'avg'):
                         print_str += '%s: %.5f  ,  ' % (name, val.avg)
-                    # else:
-                    #     print_str += '%s: %r  ,  ' % (name, val)
 
             print(print_str[:-5])
             log_str = print_str[:-5] + '\n'
@@ -178,6 +199,40 @@ class LTRTrainer(BaseTrainer):
                 else:
                     print("Log file path not configured in settings.")
 
+        # ----- NEW: Manual timing information printing -----
+        if should_print_timing:
+            elapsed_time = current_time - self.start_time
+            remaining_samples = (loader.__len__() - i) * batch_size
+            total_samples = loader.__len__() * batch_size
+            samples_processed = total_samples - remaining_samples
+
+            if samples_processed > 0:
+                estimated_total_time = elapsed_time * total_samples / samples_processed
+                remaining_time = estimated_total_time - elapsed_time
+                progress_percent = (samples_processed / total_samples) * 100
+
+                # Calculate epoch time (this is the time for current epoch)
+                epoch_time = elapsed_time
+
+                timing_str = f"[Epoch {self.epoch}, Iter {i}/{loader.__len__()}] "
+                timing_str += f"Samples: {remaining_samples} left ({progress_percent:.1f}%), "
+                timing_str += f"Time: {elapsed_time / 3600:.2f}h used, {remaining_time / 3600:.2f}h left, "
+                timing_str += f"Last epoch: {epoch_time / 3600:.2f}h, Total: {elapsed_time / 3600:.2f}h"
+
+                print(timing_str)
+
+                # Log timing information to file as well
+                if misc.is_main_process():
+                    log_file_path = getattr(self.settings, 'log_file', None)
+                    if log_file_path:
+                        try:
+                            with open(log_file_path, 'a') as f:
+                                f.write(timing_str + '\n')
+                        except Exception as e:
+                            print(f"Error writing timing to log file {log_file_path}: {e}")
+
+            self.last_time_print = current_time
+
     def _stats_new_epoch(self):
         # Record learning rate
         for loader in self.loaders:
@@ -190,17 +245,17 @@ class LTRTrainer(BaseTrainer):
                     try:
                         lr_list = self.lr_scheduler.get_lr()
                     except AttributeError:
-                         # Handle cases where scheduler might not have get_lr or _get_lr
+                        # Handle cases where scheduler might not have get_lr or _get_lr
                         try:
                             lr_list = self.lr_scheduler._get_lr(self.epoch)
                         except Exception as e:
                             print(f"Could not retrieve learning rate: {e}")
-                            lr_list = [self.optimizer.param_groups[0]['lr']] # Default to first group LR
+                            lr_list = [self.optimizer.param_groups[0]['lr']]  # Default to first group LR
 
                 for i, lr in enumerate(lr_list):
                     var_name = 'LearningRate/group{}'.format(i)
                     if loader.name not in self.stats or self.stats[loader.name] is None:
-                         self.stats[loader.name] = OrderedDict()
+                        self.stats[loader.name] = OrderedDict()
                     if var_name not in self.stats[loader.name].keys():
                         self.stats[loader.name][var_name] = StatValue()
                     self.stats[loader.name][var_name].update(lr)
@@ -217,8 +272,6 @@ class LTRTrainer(BaseTrainer):
             self.tensorboard_writer.write_info(self.settings.script_name, self.settings.description)
 
         self.tensorboard_writer.write_epoch(self.stats, self.epoch)
-
-
 
 # import os
 # from collections import OrderedDict

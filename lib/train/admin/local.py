@@ -9,6 +9,7 @@ class EnvironmentSettings:
         self.pretrained_networks = os.path.join(self.workspace_dir, 'pretrained_networks')
         #checkpoints
         self.lasot_dir = os.path.join(os.getcwd(), 'data', 'lasot')
+
         #self.lasot_dir = '/mnt/e/current_research/seq/data/lasot'
         # self.got10k_dir = '/mnt/e/current_research/seq/data/got10k'
         #self.lasot_lmdb_dir = '/mnt/e/current_research/seq/data/lasot_lmdb'
