@@ -100,7 +100,9 @@ class LTRTrainer(BaseTrainer):
                     loss, stats = self.actor(data)
 
             # ----- MODIFIED: Excel data logging with frequency control -----
-            if self.iteration_counter % self.settings.log_data_frequency == 0:
+            log_freq = getattr(self.settings, 'log_data_frequency', self.settings.print_interval)
+            #if self.iteration_counter % self.settings.log_data_frequency == 0:
+            if i % log_freq == 0 or i == len(loader):
                 data_recorder.log_data(sample_index, data_info, stats)
                 print(
                     f"Excel data logged at iteration {self.iteration_counter} (every {self.settings.log_data_frequency} iterations)")
