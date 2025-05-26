@@ -36,7 +36,7 @@ def init_excel():
     # Save the initial file
     wb.save(FILENAME)
     _file_initialized = True
-    print(f"Excel file '{FILENAME}' created with headers.")
+    #print(f"Excel file '{FILENAME}' created with headers.")
 
 
 # Apply alignment and sizing to header row only
@@ -149,7 +149,7 @@ def log_data(sample_index: int, data_info: dict, stats: dict):
 
     # Save to file
     wb.save(FILENAME)
-    print(f"Data appended to row {start_row}-{end_row} in '{FILENAME}'")
+    #print(f"Data appended to row {start_row}-{end_row} in '{FILENAME}'")
 
 
 # Optional: Function to manually initialize the Excel file at the start of training

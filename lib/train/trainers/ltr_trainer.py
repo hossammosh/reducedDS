@@ -9,7 +9,6 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.cuda.amp import autocast
 from torch.cuda.amp import GradScaler
 import lib.utils.misc as misc
-# from lib.train.data_recorder import log_data
 import lib.train.data_recorder as data_recorder
 
 
@@ -25,7 +24,7 @@ class LTRTrainer(BaseTrainer):
             lr_scheduler - Learning rate scheduler
         """
         super().__init__(actor, loaders, optimizer, settings, lr_scheduler)
-        self._set_default_settings()
+        #self._set_default_settings()
 
         # Initialize statistics variables
         self.stats = OrderedDict({loader.name: None for loader in self.loaders})
@@ -58,12 +57,12 @@ class LTRTrainer(BaseTrainer):
         self.iteration_counter = 0
 
     def _set_default_settings(self):
-        # Dict of all default values
+        #Dict of all default values
         default = {'print_interval': 10,
                    'print_stats': None,
                    'description': '',
-                   'log_data_frequency': 50,  # ADD THIS LINE
-                   'time_printing_frequency': 5}  # ADD THIS LINE
+                   'log_sample_stats_interval': 50,  # ADD THIS LINE
+                   'parameters_printing_interval': 5}  # ADD THIS LINE
 
         for param, default_value in default.items():
             if getattr(self.settings, param, None) is None:
@@ -98,14 +97,12 @@ class LTRTrainer(BaseTrainer):
             else:
                 with autocast():
                     loss, stats = self.actor(data)
-
+            data_recorder.log_data(sample_index, data_info, stats)
             # ----- MODIFIED: Excel data logging with frequency control -----
-            log_freq = getattr(self.settings, 'log_data_frequency', self.settings.print_interval)
-            #if self.iteration_counter % self.settings.log_data_frequency == 0:
+
+            log_freq = getattr(self.settings, 'log_sample_stats_interval', 10)
             if i % log_freq == 0 or i == len(loader):
-                data_recorder.log_data(sample_index, data_info, stats)
-                print(
-                    f"Excel data logged at iteration {self.iteration_counter} (every {self.settings.log_data_frequency} iterations)")
+                print(f"Excel data logged at iteration {self.iteration_counter} (every {self.settings.log_sample_stats_interval} iterations)")
 
             # backward pass and update weights
             if loader.training:
@@ -175,9 +172,9 @@ class LTRTrainer(BaseTrainer):
         self.prev_time = current_time
 
         # ----- MODIFIED: Manual time printing frequency control -----
-        should_print_stats = i % self.settings.print_interval == 0 or i == loader.__len__()
+        should_print_stats = i % self.settings.parameters_printing_interval == 0 or i == loader.__len__()
         should_print_timing = (current_time - self.last_time_print) >= (
-                    self.settings.time_printing_frequency * 60) or i == loader.__len__()
+                    self.settings.parameters_printing_interval * 60) or i == loader.__len__()
 
         if should_print_stats:
             print_str = '[%s: %d, %d / %d] ' % (loader.name, self.epoch, i, loader.__len__())

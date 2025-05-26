@@ -24,8 +24,8 @@ def update_settings(settings, cfg):
     settings.scheduler_type = cfg.TRAIN.SCHEDULER.TYPE
 
     # ADD THESE TWO LINES:
-    settings.log_data_frequency = getattr(cfg.TRAIN, "LOG_DATA_FREQUENCY", 100)
-    settings.time_printing_frequency = getattr(cfg.TRAIN, "TIME_PRINTING_FREQUENCY", 10)
+    settings.log_sample_stats_interval = getattr(cfg.TRAIN, "log_sample_stats_interval", 100)
+    settings.parameters_printing_interval = getattr(cfg.TRAIN, "parameters_printing_interval", 10)
 
 
 def names2datasets(name_list: list, settings, image_loader):

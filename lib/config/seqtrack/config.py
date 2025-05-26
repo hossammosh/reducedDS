@@ -32,7 +32,7 @@ cfg.TRAIN.WEIGHT_DECAY = 0.0001
 cfg.TRAIN.EPOCH = 500
 cfg.TRAIN.LR_DROP_EPOCH = 400
 cfg.TRAIN.BATCH_SIZE = 8
-cfg.TRAIN.NUM_WORKER = 8
+cfg.TRAIN.NUM_WORKER = 1
 cfg.TRAIN.OPTIMIZER = "ADAMW"
 cfg.TRAIN.ENCODER_MULTIPLIER = 0.1  # encoder's LR = this factor * LR
 cfg.TRAIN.FREEZE_ENCODER = False # for freezing the parameters of encoder
@@ -44,8 +44,8 @@ cfg.TRAIN.GRAD_CLIP_NORM = 0.1
 cfg.TRAIN.SCHEDULER = edict()
 cfg.TRAIN.SCHEDULER.TYPE = "step"
 cfg.TRAIN.SCHEDULER.DECAY_RATE = 0.1
-cfg.TRAIN.LOG_DATA_FREQUENCY  = 50
-cfg.TRAIN.PARAMETERS_PRINTING_FREQUENCY  = 10
+cfg.TRAIN.log_sample_stats_interval  = 50
+cfg.TRAIN.parameters_printing_interval  = 10
 cfg.TRAIN.CHECKPOINT_SAVE_INTERVAL =1
 # DATA
 cfg.DATA = edict()
