@@ -158,21 +158,69 @@ class LTRTrainer(BaseTrainer):
         average_fps = self.num_frames / (current_time - self.start_time)
         self.prev_time = current_time
 
-        # ----- MODIFIED: Manual time printing frequency control -----
-        should_print_stats = i % self.settings.parameters_printing_interval == 0 or i == loader.__len__()
-        should_print_timing = (current_time - self.last_time_print) >= (
-                    self.settings.parameters_printing_interval * 60) or i == loader.__len__()
+        if i % self.settings.print_interval == 0 or i == loader.__len__():
+            # ===== NEW CODE BLOCK START =====
+            # Calculate progress information
+            total_samples_per_epoch = loader.__len__()
+            samples_completed = i
+            samples_left = total_samples_per_epoch - i
+            progress_ratio = samples_completed / total_samples_per_epoch
+            samples_left_ratio = samples_left / total_samples_per_epoch
 
-        if should_print_stats:
-            print_str = '[%s: %d, %d / %d] ' % (loader.name, self.epoch, i, loader.__len__())
-            print_str += 'FPS: %.1f (%.1f)  ,  ' % (average_fps, batch_fps)
+            # Time calculations for current epoch
+            time_used_seconds = current_time - self.start_time
+            time_used_hours = time_used_seconds / 3600
+
+            # Estimate time left for current epoch
+            if progress_ratio > 0:
+                estimated_total_epoch_time = time_used_seconds / progress_ratio
+                time_left_epoch_seconds = estimated_total_epoch_time - time_used_seconds
+                time_left_epoch_hours = time_left_epoch_seconds / 3600
+            else:
+                time_left_epoch_hours = 0
+
+            # Time for last completed epoch (if not first epoch)
+            if hasattr(self, 'last_epoch_time'):
+                last_epoch_time_hours = self.last_epoch_time / 3600
+            else:
+                last_epoch_time_hours = 0.0
+
+            # Total time since training start
+            if hasattr(self, 'training_start_time'):
+                total_training_time_seconds = current_time - self.training_start_time
+                total_training_time_hours = total_training_time_seconds / 3600
+            else:
+                # First epoch, initialize training start time
+                self.training_start_time = self.start_time
+                total_training_time_hours = time_used_hours
+
+            # Comprehensive progress line
+            progress_info = (f"[{loader.name}: Epoch {self.epoch}, {i}/{total_samples_per_epoch}] "
+                             f"Samples Left: {samples_left} ({samples_left_ratio:.1%}) | "
+                             f"Current Epoch: {time_used_hours:.2f}h used, {time_left_epoch_hours:.2f}h left | "
+                             f"Last Epoch: {last_epoch_time_hours:.2f}h | "
+                             f"Total Training: {total_training_time_hours:.2f}h | "
+                             f"FPS: {average_fps:.1f} ({batch_fps:.1f})")
+
+            # Add loss statistics to the same line
+            stats_str = ""
             for name, val in self.stats[loader.name].items():
                 if (self.settings.print_stats is None or name in self.settings.print_stats):
                     if hasattr(val, 'avg'):
-                        print_str += '%s: %.5f  ,  ' % (name, val.avg)
+                        stats_str += f'{name}: {val.avg:.5f}, '
 
-            print(print_str[:-5])
-            log_str = print_str[:-5] + '\n'
+            # Combine progress info with stats
+            if stats_str:
+                full_line = progress_info + " | " + stats_str[:-2]  # Remove last ", "
+            else:
+                full_line = progress_info
+
+            print(full_line)
+
+            # Log to file
+            log_str = full_line + '\n'
+            # ===== NEW CODE BLOCK END =====
+
             if misc.is_main_process():
                 # Ensure log file path is correctly handled
                 log_file_path = getattr(self.settings, 'log_file', None)
@@ -185,39 +233,73 @@ class LTRTrainer(BaseTrainer):
                 else:
                     print("Log file path not configured in settings.")
 
-        # ----- NEW: Manual timing information printing -----
-        if should_print_timing:
-            elapsed_time = current_time - self.start_time
-            remaining_samples = (loader.__len__() - i) * batch_size
-            total_samples = loader.__len__() * batch_size
-            samples_processed = total_samples - remaining_samples
-
-            if samples_processed > 0:
-                estimated_total_time = elapsed_time * total_samples / samples_processed
-                remaining_time = estimated_total_time - elapsed_time
-                progress_percent = (samples_processed / total_samples) * 100
-
-                # Calculate epoch time (this is the time for current epoch)
-                epoch_time = elapsed_time
-
-                timing_str = f"[Epoch {self.epoch}, Iter {i}/{loader.__len__()}] "
-                timing_str += f"Samples: {remaining_samples} left ({progress_percent:.1f}%), "
-                timing_str += f"Time: {elapsed_time / 3600:.2f}h used, {remaining_time / 3600:.2f}h left, "
-                timing_str += f"Last epoch: {epoch_time / 3600:.2f}h, Total: {elapsed_time / 3600:.2f}h"
-
-                print(timing_str)
-
-                # Log timing information to file as well
-                if misc.is_main_process():
-                    log_file_path = getattr(self.settings, 'log_file', None)
-                    if log_file_path:
-                        try:
-                            with open(log_file_path, 'a') as f:
-                                f.write(timing_str + '\n')
-                        except Exception as e:
-                            print(f"Error writing timing to log file {log_file_path}: {e}")
-
-            self.last_time_print = current_time
+    # def _print_stats(self, i, loader, batch_size):
+    #     self.num_frames += batch_size
+    #     current_time = time.time()
+    #     batch_fps = batch_size / (current_time - self.prev_time)
+    #     average_fps = self.num_frames / (current_time - self.start_time)
+    #     self.prev_time = current_time
+    #
+    #     # ----- MODIFIED: Manual time printing frequency control -----
+    #     should_print_stats = i % self.settings.parameters_printing_interval == 0 or i == loader.__len__()
+    #     should_print_timing = (current_time - self.last_time_print) >= (
+    #                 self.settings.parameters_printing_interval * 60) or i == loader.__len__()
+    #
+    #     if should_print_stats:
+    #         print_str = '[%s: %d, %d / %d] ' % (loader.name, self.epoch, i, loader.__len__())
+    #         print_str += 'FPS: %.1f (%.1f)  ,  ' % (average_fps, batch_fps)
+    #         for name, val in self.stats[loader.name].items():
+    #             if (self.settings.print_stats is None or name in self.settings.print_stats):
+    #                 if hasattr(val, 'avg'):
+    #                     print_str += '%s: %.5f  ,  ' % (name, val.avg)
+    #
+    #         print(print_str[:-5])
+    #         log_str = print_str[:-5] + '\n'
+    #         if misc.is_main_process():
+    #             # Ensure log file path is correctly handled
+    #             log_file_path = getattr(self.settings, 'log_file', None)
+    #             if log_file_path:
+    #                 try:
+    #                     with open(log_file_path, 'a') as f:
+    #                         f.write(log_str)
+    #                 except Exception as e:
+    #                     print(f"Error writing to log file {log_file_path}: {e}")
+    #             else:
+    #                 print("Log file path not configured in settings.")
+    #
+    #     # ----- NEW: Manual timing information printing -----
+    #     if should_print_timing:
+    #         elapsed_time = current_time - self.start_time
+    #         remaining_samples = (loader.__len__() - i) * batch_size
+    #         total_samples = loader.__len__() * batch_size
+    #         samples_processed = total_samples - remaining_samples
+    #
+    #         if samples_processed > 0:
+    #             estimated_total_time = elapsed_time * total_samples / samples_processed
+    #             remaining_time = estimated_total_time - elapsed_time
+    #             progress_percent = (samples_processed / total_samples) * 100
+    #
+    #             # Calculate epoch time (this is the time for current epoch)
+    #             epoch_time = elapsed_time
+    #
+    #             timing_str = f"[Epoch {self.epoch}, Iter {i}/{loader.__len__()}] "
+    #             timing_str += f"Samples: {remaining_samples} left ({progress_percent:.1f}%), "
+    #             timing_str += f"Time: {elapsed_time / 3600:.2f}h used, {remaining_time / 3600:.2f}h left, "
+    #             timing_str += f"Last epoch: {epoch_time / 3600:.2f}h, Total: {elapsed_time / 3600:.2f}h"
+    #
+    #             print(timing_str)
+    #
+    #             # Log timing information to file as well
+    #             if misc.is_main_process():
+    #                 log_file_path = getattr(self.settings, 'log_file', None)
+    #                 if log_file_path:
+    #                     try:
+    #                         with open(log_file_path, 'a') as f:
+    #                             f.write(timing_str + '\n')
+    #                     except Exception as e:
+    #                         print(f"Error writing timing to log file {log_file_path}: {e}")
+    #
+    #         self.last_time_print = current_time
 
     def _stats_new_epoch(self):
         # Record learning rate
