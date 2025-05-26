@@ -24,7 +24,6 @@ class LTRTrainer(BaseTrainer):
             lr_scheduler - Learning rate scheduler
         """
         super().__init__(actor, loaders, optimizer, settings, lr_scheduler)
-        #self._set_default_settings()
 
         # Initialize statistics variables
         self.stats = OrderedDict({loader.name: None for loader in self.loaders})
@@ -55,18 +54,6 @@ class LTRTrainer(BaseTrainer):
 
         # ----- NEW: Initialize iteration counter for Excel logging frequency -----
         self.iteration_counter = 0
-
-    def _set_default_settings(self):
-        #Dict of all default values
-        default = {'print_interval': 10,
-                   'print_stats': None,
-                   'description': '',
-                   'log_sample_stats_interval': 50,  # ADD THIS LINE
-                   'parameters_printing_interval': 5}  # ADD THIS LINE
-
-        for param, default_value in default.items():
-            if getattr(self.settings, param, None) is None:
-                setattr(self.settings, param, default_value)
 
     def cycle_dataset(self, loader):
         """Do a cycle of training or validation."""
