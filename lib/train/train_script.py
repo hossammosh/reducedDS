@@ -15,11 +15,12 @@ from lib.models.seqtrack import build_seqtrack
 from lib.train.actors import SeqTrackActor
 # for import modules
 import importlib
+import lib.train.data_recorder as data_recorder
 
 
 def run(settings):
     settings.description = 'Training script for SeqTrack'
-
+    data_recorder.reset_log()
     # update the default configs with config file
     if not os.path.exists(settings.cfg_file):
         raise ValueError("%s doesn't exist." % settings.cfg_file)
