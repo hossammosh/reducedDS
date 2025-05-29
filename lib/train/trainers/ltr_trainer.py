@@ -116,7 +116,7 @@ class LTRTrainer(BaseTrainer):
     def train_epoch(self):
         """Do one epoch for each loader."""
         # Set the current epoch in the data recorder at the beginning of each epoch
-        #data_recorder.set_epoch(self.epoch)
+        data_recorder.set_epoch(self.epoch)
 
         for loader in self.loaders:
             if self.epoch % loader.epoch_interval == 0:
