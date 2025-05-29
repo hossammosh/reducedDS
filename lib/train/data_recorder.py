@@ -1,263 +1,319 @@
 #!/usr/bin/env python
 # coding=utf-8
 import os
-import tempfile
-import shutil
-from openpyxl import Workbook, load_workbook
-from openpyxl.styles import Alignment
-from openpyxl.utils import get_column_letter
+import pandas as pd
+import threading
 import time
 import random
-import threading
+from openpyxl.styles import Alignment
+from openpyxl.utils import get_column_letter
 
-# Thread-local storage for file access tracking
-_local = threading.local()
+# --- Configuration ---
+_chunk_size = 10000  # Save every 10,000 samples
+_delete_chunks_after_merge = True # Set to False to keep intermediate chunk files
 
-# Global variables to track initialization state and current epoch
+# --- Global State (Protected by Lock) ---
+_buffer = []
+_chunk_files = []
+_samples_in_buffer = 0
+_total_samples_logged_this_epoch = 0
 _current_epoch = None
-_epoch_files_initialized = {}  # Track which epoch files have been initialized
-_file_lock = threading.Lock()  # Lock for file operations
+_file_lock = threading.Lock()
 
+# Define headers based on the original structure
+_headers = [
+    "Index", "Sample Index", "stats/Loss_total", "stats_IoU", "Seq Name",
+    "Template Frame ID", "Template Frame Path", "Search Frame ID", "Seq ID",
+    "Seq Path", "Class Name", "Vid ID", "Search Names", "Search Path"
+]
 
-# Generate filename for a specific epoch
-def _get_epoch_filename(epoch):
+# --- Filename Generation ---
+def _get_chunk_filename(epoch, start_index, end_index):
     # Save in the root directory where the script is run
-    return f'samples_log_epoch_{epoch}.xlsx'
+    return f'samples_log_epoch_{epoch}_sample_{start_index}_{end_index}.xlsx'
 
+def _get_final_filename(epoch, total_samples):
+    # Save in the root directory where the script is run
+    return f'samples_log_epoch_{epoch}_all_sample_1_{total_samples}.xlsx'
 
-# Initialize a new Excel workbook with header for a specific epoch
-def init_excel_for_epoch(epoch):
-    global _epoch_files_initialized, _current_epoch
-
-    # Update the current epoch
-    _current_epoch = epoch
-
-    # Generate filename for this epoch
-    filename = _get_epoch_filename(epoch)
-
-    # Use a lock to ensure only one thread initializes the file
-    with _file_lock:
-        # Check if this epoch's file has already been initialized in this run
-        if epoch in _epoch_files_initialized and _epoch_files_initialized[epoch]:
-            return
-
-        # Overwrite if file exists from a previous run (as per user requirement)
-        # Create new workbook for this epoch
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "DataInfo"
-
-        # Header row with specific headers
-        headers = [
-            "Index", "Sample Index", "stats/Loss_total", "stats_IoU", "Seq Name",
-            "Template Frame ID", "Template Frame Path",
-            "Search Frame ID",
-            "Seq ID", "Seq Path", "Class Name", "Vid ID", "Search Names", "Search Path"
-        ]
-        ws.append(headers)
-        _format_header_cells(ws)
-
-        # Save the initial file directly (removed atomic operation)
-        try:
-            wb.save(filename)
-            _epoch_files_initialized[epoch] = True
-            print(f"Excel file '{filename}' created/overwritten with headers for epoch {epoch}.")
-        except Exception as e:
-            print(f"Error creating Excel file for epoch {epoch}: {e}")
-            # Don't mark as initialized if there was an error
-
-
-# Apply alignment and sizing to header row only
-def _format_header_cells(ws):
-    align = Alignment(horizontal='center', vertical='center', wrap_text=True)
-
-    # Format only the header row
-    for cell in ws[1]:
-        cell.alignment = align
-
-    # Set column widths based on header content
-    for col in ws.columns:
-        max_length = 0
-        for cell in col:
-            try:
-                if cell.value is not None:
-                    max_length = max(max_length, len(str(cell.value)))
-            except:
-                pass
-        col_letter = get_column_letter(col[0].column)
-        ws.column_dimensions[col_letter].width = max_length + 4
-
-    # Set row height for header
-    ws.row_dimensions[1].height = 25
-
-
-# Apply formatting to newly added rows
-def _format_new_rows(ws, start_row, end_row):
-    align = Alignment(horizontal='center', vertical='center', wrap_text=True)
-
-    # Format the new rows
-    for row_num in range(start_row, end_row + 1):
-        for cell in ws[row_num]:
-            cell.alignment = align
-        ws.row_dimensions[row_num].height = 25
-
-
-# Get the next available row number
-def _get_next_row(ws):
-    return ws.max_row + 1
-
-
-# Helper to safely convert lists to string (first element fallback)
-def _safe_str_list(value, idx=0):
+# --- Helper Functions ---
+def _safe_str_list(value):
+    """Safely convert lists or other types to string."""
     if isinstance(value, list):
-        if len(value) > idx:
-            elem = value[idx]
-            if isinstance(elem, list):
-                return ", ".join(map(str, elem))
-            else:
-                return str(elem)
-        else:
-            return ""
+        # Handle nested lists if necessary, assuming simple list of strings/numbers for now
+        return ", ".join(map(str, value))
     elif value is None:
         return ""
     else:
         return str(value)
 
+def _format_excel_file(filename):
+    """Applies basic formatting (alignment, column width) to an Excel file."""
+    try:
+        from openpyxl import load_workbook # Import locally to avoid dependency if not used
+        wb = load_workbook(filename)
+        ws = wb.active
 
-# Implement a retry mechanism for file operations (kept for loading)
-def _with_retry(operation, max_retries=3, delay=0.5):
-    """Execute an operation with retries in case of failure"""
-    retries = 0
-    while retries < max_retries:
-        try:
-            return operation()
-        except Exception as e:
-            retries += 1
-            if retries == max_retries:
-                print(f"Operation failed after {max_retries} retries: {e}") # Added print for clarity
-                raise e
-            time.sleep(delay * (1 + random.random()))
+        # Center alignment for all cells
+        align = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        for row in ws.iter_rows():
+            for cell in row:
+                cell.alignment = align
 
+        # Auto-adjust column widths based on content (max length)
+        for col_idx, column_cells in enumerate(ws.columns, 1):
+            max_length = 0
+            # Check header length first
+            header_cell = ws.cell(row=1, column=col_idx)
+            if header_cell.value:
+                 max_length = len(str(header_cell.value))
+            # Check content length (sample a few rows for efficiency if needed)
+            for cell in column_cells[1:]: # Skip header
+                try:
+                    if cell.value is not None:
+                        cell_len = len(str(cell.value))
+                        if cell_len > max_length:
+                            max_length = cell_len
+                except: # Handle potential errors with cell values
+                    pass
+            # Add padding
+            adjusted_width = max_length + 4
+            ws.column_dimensions[get_column_letter(col_idx)].width = adjusted_width
 
-# Logging function - Now detects the epoch from LTRTrainer and saves to the appropriate file
-def log_data(sample_index: int, data_info: dict, stats: dict):
-    global _current_epoch
+        # Set header row height
+        ws.row_dimensions[1].height = 25
+        # Optionally set default row height for others if needed
+        # for i in range(2, ws.max_row + 1):
+        #     ws.row_dimensions[i].height = 20
 
-    # Get the current epoch from data_info if available (which comes from the LTRTrainer)
-    if 'epoch' in data_info:
-        epoch = data_info['epoch']
-    else:
-        # Use the global current epoch if not provided in data_info
-        epoch = _current_epoch
+        wb.save(filename)
+        # print(f"Applied formatting to {filename}")
+    except ImportError:
+        print("Warning: openpyxl not found. Cannot apply Excel formatting.")
+    except Exception as e:
+        print(f"Error formatting Excel file {filename}: {e}")
 
-    # If no epoch information is available, use epoch 0 as default
-    if epoch is None:
-        epoch = 0
+# --- Core Logic ---
+def _save_chunk(epoch, start_index, end_index, data_to_save):
+    """Saves the current buffer to a chunk file."""
+    global _chunk_files
+    if not data_to_save:
+        print("No data in buffer to save as chunk.")
+        return
 
-    # Initialize file for this epoch if not already done (will overwrite if needed)
-    init_excel_for_epoch(epoch)
+    filename = _get_chunk_filename(epoch, start_index, end_index)
+    print(f"Saving chunk {start_index}-{end_index} for epoch {epoch} to {filename}...")
 
-    # Get filename for the current epoch
-    filename = _get_epoch_filename(epoch)
+    try:
+        df = pd.DataFrame(data_to_save)
+        # Ensure columns are in the correct order
+        df = df.reindex(columns=_headers)
 
-    # Use a file lock to ensure only one thread accesses the file at a time
-    with _file_lock:
-        try:
-            # Define a function to encapsulate the workbook loading
-            def load_the_workbook():
-                # Make sure the file exists (init should have created it)
-                if not os.path.exists(filename):
-                    # This case should ideally not happen if init_excel_for_epoch worked
-                    print(f"Warning: File {filename} not found before loading, attempting re-initialization.")
-                    init_excel_for_epoch(epoch)
-                    if not os.path.exists(filename):
-                         raise FileNotFoundError(f"Failed to create or find {filename} for epoch {epoch}")
-                return load_workbook(filename)
+        # Save using pandas, specifying the engine
+        df.to_excel(filename, index=False, engine='openpyxl')
 
-            # Load the workbook with retry mechanism
-            wb = _with_retry(load_the_workbook)
-            ws = wb.active
+        # Apply formatting after saving
+        _format_excel_file(filename)
 
-            # Get the next available row
-            next_row = _get_next_row(ws)
-            start_row = next_row
-            end_row = next_row + 1
+        _chunk_files.append(filename)
+        print(f"Successfully saved and formatted chunk: {filename}")
 
-            # Calculate the actual index (row number - 1 for header)
-            data_index = next_row - 1
+    except Exception as e:
+        print(f"Error saving chunk {filename}: {e}")
 
-            # Merge columns vertically for the two new rows
-            merge_columns = [1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13, 14]
-            for col in merge_columns:
-                ws.merge_cells(start_row=start_row, start_column=col, end_row=end_row, end_column=col)
-
-            # Extract specific stats, handle missing keys
-            loss_total = stats.get("Loss/total", None)
-            iou = stats.get("IoU", None)
-
-            # Write row 1 values (merged and unmerged)
-            ws.cell(row=start_row, column=1, value=data_index)
-            ws.cell(row=start_row, column=2, value=sample_index)
-            ws.cell(row=start_row, column=3, value=loss_total)
-            ws.cell(row=start_row, column=4, value=iou)
-            ws.cell(row=start_row, column=5, value=data_info.get("seq_name", ""))
-            ws.cell(row=start_row, column=6, value=_safe_str_list(data_info.get("template_ids"), 0))
-            ws.cell(row=start_row, column=7, value=_safe_str_list(data_info.get("template_path"), 0))
-            ws.cell(row=start_row, column=8, value=_safe_str_list(data_info.get("search_id")))
-            ws.cell(row=start_row, column=9, value=data_info.get("seq_id", ""))
-            ws.cell(row=start_row, column=10, value=data_info.get("seq_path", ""))
-            ws.cell(row=start_row, column=11, value=data_info.get("class_name", ""))
-            ws.cell(row=start_row, column=12, value=data_info.get("vid_id", ""))
-            ws.cell(row=start_row, column=13, value=", ".join(map(str, data_info.get("search_names", []))))
-            ws.cell(row=start_row, column=14, value=", ".join(map(str, data_info.get("search_path", []))))
-
-            # Write row 2 values (template frame IDs and paths)
-            ws.cell(row=end_row, column=6, value=_safe_str_list(data_info.get("template_ids"), 1))
-            ws.cell(row=end_row, column=7, value=_safe_str_list(data_info.get("template_path"), 1))
-
-            # Format the newly added rows
-            _format_new_rows(ws, start_row, end_row)
-
-            # Save to file directly (removed atomic operation)
-            wb.save(filename)
-
-        except Exception as e:
-            print(f"Error logging data to Excel file for epoch {epoch}: {e}")
-            # If there's an error during logging/saving, the file might be partially written
-            # or corrupted. We don't re-initialize here as the header might be fine.
-            # The user specified restarting from 0 in case of crash, implying partial data is acceptable loss.
-
-
-# Used to explicitly set the current epoch (can be called at the beginning of each epoch)
 def set_epoch(epoch_number):
-    global _current_epoch
-    _current_epoch = epoch_number
-
-    # Initialize the excel file for this epoch if it doesn't exist yet or needs overwriting
-    init_excel_for_epoch(epoch_number)
-
-
-# Optional: Function to reset all epoch logs
-def reset_log():
-    """Delete all existing epoch log files and reset initialization tracking."""
-    global _current_epoch, _epoch_files_initialized
-
-    # Use a lock to ensure safe deletion
+    """Sets the current epoch, clearing buffers and state for the new epoch."""
+    global _current_epoch, _buffer, _samples_in_buffer, _chunk_files, _total_samples_logged_this_epoch
     with _file_lock:
-        # Reset globals
-        _current_epoch = None
+        if _current_epoch is not None and _current_epoch != epoch_number:
+            # If finalize_epoch wasn't called by the trainer, call it defensively.
+            print(f"Warning: Starting epoch {epoch_number} but previous epoch {_current_epoch} was not explicitly finalized. Finalizing {_current_epoch} now.")
+            finalize_epoch(_current_epoch)
 
-        # Delete any existing log files
-        files_to_delete = [f for f in os.listdir('.') if f.startswith('samples_log_epoch_') and f.endswith('.xlsx')]
-        for filename in files_to_delete:
+        print(f"Setting data recorder for epoch {epoch_number}. Clearing state.")
+        _current_epoch = epoch_number
+        _buffer = []
+        _samples_in_buffer = 0
+        _chunk_files = []
+        _total_samples_logged_this_epoch = 0
+
+def log_data(sample_index: int, data_info: dict, stats: dict):
+    """Logs data for a single sample by adding it to the buffer. Saves chunk if buffer is full."""
+    global _buffer, _samples_in_buffer, _current_epoch, _total_samples_logged_this_epoch
+
+    # Determine epoch (should be set by trainer via set_epoch or passed in data_info)
+    epoch = data_info.get('epoch', _current_epoch)
+    if epoch is None:
+        print("Error: Epoch not set in data_recorder. Cannot log data. Call set_epoch() first.")
+        return
+    # Ensure consistency if epoch changes unexpectedly mid-stream
+    if epoch != _current_epoch:
+        print(f"Warning: Logging data for epoch {epoch}, but recorder's current epoch is {_current_epoch}. Attempting to switch epoch.")
+        set_epoch(epoch)
+
+    # Prepare the data entry as a dictionary
+    loss_total = stats.get("Loss/total", None)
+    iou = stats.get("IoU", None)
+
+    with _file_lock:
+        _total_samples_logged_this_epoch += 1
+        current_log_index = _total_samples_logged_this_epoch
+
+        # Create the dictionary matching the headers
+        log_entry = {
+            "Index": current_log_index,
+            "Sample Index": sample_index,
+            "stats/Loss_total": loss_total,
+            "stats_IoU": iou,
+            "Seq Name": data_info.get("seq_name", ""),
+            "Template Frame ID": _safe_str_list(data_info.get("template_ids")),
+            "Template Frame Path": _safe_str_list(data_info.get("template_path")),
+            "Search Frame ID": _safe_str_list(data_info.get("search_id")),
+            "Seq ID": data_info.get("seq_id", ""),
+            "Seq Path": data_info.get("seq_path", ""),
+            "Class Name": data_info.get("class_name", ""),
+            "Vid ID": data_info.get("vid_id", ""),
+            "Search Names": _safe_str_list(data_info.get("search_names")),
+            "Search Path": _safe_str_list(data_info.get("search_path"))
+        }
+
+        _buffer.append(log_entry)
+        _samples_in_buffer += 1
+
+        # Check if the buffer is full and needs to be saved as a chunk
+        if _samples_in_buffer >= _chunk_size:
+            start_index = current_log_index - _samples_in_buffer + 1
+            end_index = current_log_index
+            # Save the current buffer and clear it
+            _save_chunk(epoch, start_index, end_index, _buffer)
+            _buffer = []
+            _samples_in_buffer = 0
+
+def finalize_epoch(epoch):
+    """Finalizes logging for the epoch: saves remaining buffer, merges chunks, cleans up."""
+    global _buffer, _samples_in_buffer, _chunk_files, _total_samples_logged_this_epoch, _current_epoch
+
+    with _file_lock:
+        # Validate the epoch number
+        if epoch is None:
+            print("Error: Cannot finalize epoch, epoch number is None.")
+            return
+        if epoch != _current_epoch:
+             print(f"Warning: Finalizing epoch {epoch}, but recorder's current epoch is {_current_epoch}. Finalization might use data from the wrong epoch if not careful.")
+             # We proceed, assuming the caller knows which epoch to finalize.
+
+        print(f"Finalizing data logging for epoch {epoch} (Total samples logged: {_total_samples_logged_this_epoch})...")
+
+        # 1. Save any remaining data in the buffer as the last chunk
+        if _samples_in_buffer > 0:
+            start_index = _total_samples_logged_this_epoch - _samples_in_buffer + 1
+            end_index = _total_samples_logged_this_epoch
+            print(f"Saving final buffer chunk ({_samples_in_buffer} samples) for epoch {epoch}...")
+            _save_chunk(epoch, start_index, end_index, _buffer)
+            _buffer = [] # Clear buffer after saving
+            _samples_in_buffer = 0
+        else:
+            print("No samples remaining in buffer.")
+
+        # 2. Merge chunk files if any exist
+        if not _chunk_files:
+            print(f"No chunk files were created for epoch {epoch}. Nothing to merge.")
+            # Reset state for the possibility of starting a new epoch later
+            _current_epoch = None # Mark as no longer active
+            return
+
+        print(f"Merging {_chunk_files} chunk files for epoch {epoch}...")
+        all_data_frames = []
+        for chunk_file in _chunk_files:
             try:
-                os.remove(filename)
-                print(f"Deleted log file: {filename}")
+                print(f"Reading chunk file: {chunk_file}")
+                df = pd.read_excel(chunk_file, engine='openpyxl')
+                all_data_frames.append(df)
             except Exception as e:
-                print(f"Error deleting log file {filename}: {e}")
+                print(f"Error reading chunk file {chunk_file}: {e}. Skipping this chunk.")
 
-        # Reset initialization tracking
-        _epoch_files_initialized = {}
+        if not all_data_frames:
+            print(f"Error: Failed to read any valid data from chunk files for epoch {epoch}. Final merged file cannot be created.")
+            # Optionally clean up failed chunks? For now, leave them.
+            _chunk_files = []
+            _current_epoch = None
+            return
 
-        print("All epoch logs have been reset.")
+        # Concatenate all dataframes
+        print("Concatenating dataframes...")
+        final_df = pd.concat(all_data_frames, ignore_index=True)
+
+        # Verify and reorder columns just in case
+        final_df = final_df.reindex(columns=_headers)
+
+        # Determine final filename
+        final_filename = _get_final_filename(epoch, _total_samples_logged_this_epoch)
+        print(f"Saving final merged file to: {final_filename}")
+
+        try:
+            # Save the final merged dataframe
+            final_df.to_excel(final_filename, index=False, engine='openpyxl')
+
+            # Apply formatting to the final merged file
+            _format_excel_file(final_filename)
+
+            print(f"Successfully merged chunks into final file: {final_filename}")
+
+            # 3. Clean up chunk files (optional)
+            if _delete_chunks_after_merge:
+                print("Cleaning up intermediate chunk files...")
+                deleted_count = 0
+                for chunk_file in _chunk_files:
+                    try:
+                        os.remove(chunk_file)
+                        # print(f"Removed chunk file: {chunk_file}")
+                        deleted_count += 1
+                    except Exception as e:
+                        print(f"Error removing chunk file {chunk_file}: {e}")
+                print(f"Removed {deleted_count} chunk files.")
+            else:
+                print("Intermediate chunk files were kept.")
+
+        except Exception as e:
+            print(f"Error saving or formatting final merged file {final_filename}: {e}")
+
+        finally:
+            # 4. Reset state after finalization
+            _chunk_files = []
+            _buffer = []
+            _samples_in_buffer = 0
+            _total_samples_logged_this_epoch = 0
+            _current_epoch = None # Mark epoch as finalized
+            print(f"Finalization process complete for epoch {epoch}.")
+
+# Example Usage (for testing purposes, not part of the library integration)
+if __name__ == '__main__':
+    print("Running data_recorder example...")
+    # Simulate usage across two epochs
+    num_samples_epoch_1 = 25000
+    num_samples_epoch_2 = 5000
+
+    # --- Epoch 1 ---
+    print("\n--- Starting Epoch 1 ---")
+    set_epoch(1)
+    for i in range(1, num_samples_epoch_1 + 1):
+        mock_data_info = {'epoch': 1, 'seq_name': f'seq_{i}', 'template_ids': [f't{i}a', f't{i}b'], 'search_id': f's{i}'}
+        mock_stats = {'Loss/total': random.random(), 'IoU': random.random() * 0.8}
+        log_data(i, mock_data_info, mock_stats)
+        if i % 5000 == 0:
+            print(f"Logged sample {i}/{num_samples_epoch_1} for epoch 1")
+    finalize_epoch(1)
+
+    # --- Epoch 2 ---
+    print("\n--- Starting Epoch 2 ---")
+    set_epoch(2)
+    for i in range(1, num_samples_epoch_2 + 1):
+        mock_data_info = {'epoch': 2, 'seq_name': f'seq_{i+100}', 'template_ids': [f't{i+100}a', f't{i+100}b'], 'search_id': f's{i+100}'}
+        mock_stats = {'Loss/total': random.random()*0.5, 'IoU': random.random() * 0.9}
+        log_data(i, mock_data_info, mock_stats)
+        if i % 1000 == 0:
+            print(f"Logged sample {i}/{num_samples_epoch_2} for epoch 2")
+    finalize_epoch(2)
+
+    print("\nData recorder example finished.")
 

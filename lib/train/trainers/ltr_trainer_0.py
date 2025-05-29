@@ -125,14 +125,7 @@ class LTRTrainer(BaseTrainer):
                     loader.sampler.set_epoch(self.epoch)
                 self.cycle_dataset(loader)
 
-        # Finalize data recording for the current epoch (save remaining buffer, merge chunks)
-        # Ensure this runs only on the main process to avoid race conditions during merge
-        if self.settings.local_rank in [-1, 0]:
-            print(f"--- ltr_trainer: Finalizing data recording for epoch {self.epoch} ---")
-            data_recorder.finalize_epoch(self.epoch)
-            print(f"--- ltr_trainer: Data recording finalized for epoch {self.epoch} ---")
-
-        self._stats_new_epoch() # Now reset stats for the next epoch
+        self._stats_new_epoch()
         if self.settings.local_rank in [-1, 0]:
             self._write_tensorboard()
 
