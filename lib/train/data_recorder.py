@@ -9,7 +9,7 @@ from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter
 
 # --- Configuration ---
-_chunk_size = 10000  # Save every 10,000 samples
+_chunk_size = 500  # Save every 10,000 samples
 _delete_chunks_after_merge = True  # Set to False to keep intermediate chunk files
 
 # --- Global State (Protected by Lock) ---
