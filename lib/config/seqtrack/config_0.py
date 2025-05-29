@@ -38,6 +38,7 @@ cfg.TRAIN.ENCODER_MULTIPLIER = 0.1  # encoder's LR = this factor * LR
 cfg.TRAIN.FREEZE_ENCODER = False # for freezing the parameters of encoder
 cfg.TRAIN.ENCODER_OPEN = [] # only for debug, open some layers of encoder when FREEZE_ENCODER is True
 cfg.TRAIN.CE_WEIGHT = 1.0 # weight for cross-entropy loss
+cfg.TRAIN.PRINT_INTERVAL = 50 # interval to print the training log
 cfg.TRAIN.GRAD_CLIP_NORM = 0.1
 # TRAIN.SCHEDULER
 cfg.TRAIN.SCHEDULER = edict()
