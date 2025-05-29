@@ -115,6 +115,9 @@ class LTRTrainer(BaseTrainer):
 
     def train_epoch(self):
         """Do one epoch for each loader."""
+        # Set the current epoch in the data recorder at the beginning of each epoch
+        data_recorder.set_epoch(self.epoch)
+
         for loader in self.loaders:
             if self.epoch % loader.epoch_interval == 0:
                 # 2021.1.10 Set epoch
@@ -135,6 +138,29 @@ class LTRTrainer(BaseTrainer):
                 torch.save(self.actor.net.state_dict(), checkpoint_path)
                 print(f"--- ltr_trainer: Successfully saved checkpoint for epoch {self.epoch} to {checkpoint_path} ---")
             # ----- Modification End: Save Checkpoint Conditionally -----
+
+    # def train_epoch(self):
+    #     """Do one epoch for each loader."""
+    #     for loader in self.loaders:
+    #         if self.epoch % loader.epoch_interval == 0:
+    #             # 2021.1.10 Set epoch
+    #             if isinstance(loader.sampler, DistributedSampler):
+    #                 loader.sampler.set_epoch(self.epoch)
+    #             self.cycle_dataset(loader)
+    #
+    #     self._stats_new_epoch()
+    #     if self.settings.local_rank in [-1, 0]:
+    #         self._write_tensorboard()
+    #
+    #         # ----- Modification Start: Save Checkpoint Conditionally -----
+    #         # Save checkpoint only for the first 10 epochs as requested for the initial stage
+    #         if self.epoch <= 10:
+    #             checkpoint_path = os.path.join(self.checkpoint_dir, f"checkpoint_epoch_{self.epoch}.pt")
+    #             print(f"--- ltr_trainer: Attempting to save checkpoint for epoch {self.epoch} to {checkpoint_path} ---")
+    #             # Save the network's state_dict (all parameters)
+    #             torch.save(self.actor.net.state_dict(), checkpoint_path)
+    #             print(f"--- ltr_trainer: Successfully saved checkpoint for epoch {self.epoch} to {checkpoint_path} ---")
+    #         # ----- Modification End: Save Checkpoint Conditionally -----
 
     def _init_timing(self):
         self.num_frames = 0
