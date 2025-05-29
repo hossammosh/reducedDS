@@ -59,6 +59,7 @@ TRAIN:
   log_sample_stats_interval: 50        # Log to Excel every 50 iterations
   parameters_printing_interval: 100
   CHECKPOINT_SAVE_INTERVAL: 1
+  LOG_SAVE: True
 TEST:
   EPOCH: 1
   SEARCH_FACTOR: 4.0
