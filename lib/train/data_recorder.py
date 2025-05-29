@@ -9,8 +9,8 @@ from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter
 
 # --- Configuration ---
-_chunk_size = 10000  # Save every 10,000 samples
-_delete_chunks_after_merge = True # Set to False to keep intermediate chunk files
+_chunk_size = 500  # Save every 10,000 samples
+_delete_chunks_after_merge = True  # Set to False to keep intermediate chunk files
 
 # --- Global State (Protected by Lock) ---
 _buffer = []
@@ -27,14 +27,17 @@ _headers = [
     "Seq Path", "Class Name", "Vid ID", "Search Names", "Search Path"
 ]
 
+
 # --- Filename Generation ---
 def _get_chunk_filename(epoch, start_index, end_index):
     # Save in the root directory where the script is run
     return f'samples_log_epoch_{epoch}_sample_{start_index}_{end_index}.xlsx'
 
+
 def _get_final_filename(epoch, total_samples):
     # Save in the root directory where the script is run
     return f'samples_log_epoch_{epoch}_all_sample_1_{total_samples}.xlsx'
+
 
 # --- Helper Functions ---
 def _safe_str_list(value):
@@ -47,10 +50,11 @@ def _safe_str_list(value):
     else:
         return str(value)
 
+
 def _format_excel_file(filename):
     """Applies basic formatting (alignment, column width) to an Excel file."""
     try:
-        from openpyxl import load_workbook # Import locally to avoid dependency if not used
+        from openpyxl import load_workbook  # Import locally to avoid dependency if not used
         wb = load_workbook(filename)
         ws = wb.active
 
@@ -66,15 +70,15 @@ def _format_excel_file(filename):
             # Check header length first
             header_cell = ws.cell(row=1, column=col_idx)
             if header_cell.value:
-                 max_length = len(str(header_cell.value))
+                max_length = len(str(header_cell.value))
             # Check content length (sample a few rows for efficiency if needed)
-            for cell in column_cells[1:]: # Skip header
+            for cell in column_cells[1:]:  # Skip header
                 try:
                     if cell.value is not None:
                         cell_len = len(str(cell.value))
                         if cell_len > max_length:
                             max_length = cell_len
-                except: # Handle potential errors with cell values
+                except:  # Handle potential errors with cell values
                     pass
             # Add padding
             adjusted_width = max_length + 4
@@ -92,6 +96,7 @@ def _format_excel_file(filename):
         print("Warning: openpyxl not found. Cannot apply Excel formatting.")
     except Exception as e:
         print(f"Error formatting Excel file {filename}: {e}")
+
 
 # --- Core Logic ---
 def _save_chunk(epoch, start_index, end_index, data_to_save):
@@ -121,13 +126,15 @@ def _save_chunk(epoch, start_index, end_index, data_to_save):
     except Exception as e:
         print(f"Error saving chunk {filename}: {e}")
 
+
 def set_epoch(epoch_number):
     """Sets the current epoch, clearing buffers and state for the new epoch."""
     global _current_epoch, _buffer, _samples_in_buffer, _chunk_files, _total_samples_logged_this_epoch
     with _file_lock:
         if _current_epoch is not None and _current_epoch != epoch_number:
             # If finalize_epoch wasn't called by the trainer, call it defensively.
-            print(f"Warning: Starting epoch {epoch_number} but previous epoch {_current_epoch} was not explicitly finalized. Finalizing {_current_epoch} now.")
+            print(
+                f"Warning: Starting epoch {epoch_number} but previous epoch {_current_epoch} was not explicitly finalized. Finalizing {_current_epoch} now.")
             finalize_epoch(_current_epoch)
 
         print(f"Setting data recorder for epoch {epoch_number}. Clearing state.")
@@ -136,6 +143,7 @@ def set_epoch(epoch_number):
         _samples_in_buffer = 0
         _chunk_files = []
         _total_samples_logged_this_epoch = 0
+
 
 def log_data(sample_index: int, data_info: dict, stats: dict):
     """Logs data for a single sample by adding it to the buffer. Saves chunk if buffer is full."""
@@ -148,7 +156,8 @@ def log_data(sample_index: int, data_info: dict, stats: dict):
         return
     # Ensure consistency if epoch changes unexpectedly mid-stream
     if epoch != _current_epoch:
-        print(f"Warning: Logging data for epoch {epoch}, but recorder's current epoch is {_current_epoch}. Attempting to switch epoch.")
+        print(
+            f"Warning: Logging data for epoch {epoch}, but recorder's current epoch is {_current_epoch}. Attempting to switch epoch.")
         set_epoch(epoch)
 
     # Prepare the data entry as a dictionary
@@ -189,6 +198,7 @@ def log_data(sample_index: int, data_info: dict, stats: dict):
             _buffer = []
             _samples_in_buffer = 0
 
+
 def finalize_epoch(epoch):
     """Finalizes logging for the epoch: saves remaining buffer, merges chunks, cleans up."""
     global _buffer, _samples_in_buffer, _chunk_files, _total_samples_logged_this_epoch, _current_epoch
@@ -199,10 +209,12 @@ def finalize_epoch(epoch):
             print("Error: Cannot finalize epoch, epoch number is None.")
             return
         if epoch != _current_epoch:
-             print(f"Warning: Finalizing epoch {epoch}, but recorder's current epoch is {_current_epoch}. Finalization might use data from the wrong epoch if not careful.")
-             # We proceed, assuming the caller knows which epoch to finalize.
+            print(
+                f"Warning: Finalizing epoch {epoch}, but recorder's current epoch is {_current_epoch}. Finalization might use data from the wrong epoch if not careful.")
+            # We proceed, assuming the caller knows which epoch to finalize.
 
-        print(f"Finalizing data logging for epoch {epoch} (Total samples logged: {_total_samples_logged_this_epoch})...")
+        print(
+            f"Finalizing data logging for epoch {epoch} (Total samples logged: {_total_samples_logged_this_epoch})...")
 
         # 1. Save any remaining data in the buffer as the last chunk
         if _samples_in_buffer > 0:
@@ -210,7 +222,7 @@ def finalize_epoch(epoch):
             end_index = _total_samples_logged_this_epoch
             print(f"Saving final buffer chunk ({_samples_in_buffer} samples) for epoch {epoch}...")
             _save_chunk(epoch, start_index, end_index, _buffer)
-            _buffer = [] # Clear buffer after saving
+            _buffer = []  # Clear buffer after saving
             _samples_in_buffer = 0
         else:
             print("No samples remaining in buffer.")
@@ -219,7 +231,7 @@ def finalize_epoch(epoch):
         if not _chunk_files:
             print(f"No chunk files were created for epoch {epoch}. Nothing to merge.")
             # Reset state for the possibility of starting a new epoch later
-            _current_epoch = None # Mark as no longer active
+            _current_epoch = None  # Mark as no longer active
             return
 
         print(f"Merging {_chunk_files} chunk files for epoch {epoch}...")
@@ -233,7 +245,8 @@ def finalize_epoch(epoch):
                 print(f"Error reading chunk file {chunk_file}: {e}. Skipping this chunk.")
 
         if not all_data_frames:
-            print(f"Error: Failed to read any valid data from chunk files for epoch {epoch}. Final merged file cannot be created.")
+            print(
+                f"Error: Failed to read any valid data from chunk files for epoch {epoch}. Final merged file cannot be created.")
             # Optionally clean up failed chunks? For now, leave them.
             _chunk_files = []
             _current_epoch = None
@@ -283,8 +296,9 @@ def finalize_epoch(epoch):
             _buffer = []
             _samples_in_buffer = 0
             _total_samples_logged_this_epoch = 0
-            _current_epoch = None # Mark epoch as finalized
+            _current_epoch = None  # Mark epoch as finalized
             print(f"Finalization process complete for epoch {epoch}.")
+
 
 # Example Usage (for testing purposes, not part of the library integration)
 if __name__ == '__main__':
@@ -297,7 +311,8 @@ if __name__ == '__main__':
     print("\n--- Starting Epoch 1 ---")
     set_epoch(1)
     for i in range(1, num_samples_epoch_1 + 1):
-        mock_data_info = {'epoch': 1, 'seq_name': f'seq_{i}', 'template_ids': [f't{i}a', f't{i}b'], 'search_id': f's{i}'}
+        mock_data_info = {'epoch': 1, 'seq_name': f'seq_{i}', 'template_ids': [f't{i}a', f't{i}b'],
+                          'search_id': f's{i}'}
         mock_stats = {'Loss/total': random.random(), 'IoU': random.random() * 0.8}
         log_data(i, mock_data_info, mock_stats)
         if i % 5000 == 0:
@@ -308,12 +323,52 @@ if __name__ == '__main__':
     print("\n--- Starting Epoch 2 ---")
     set_epoch(2)
     for i in range(1, num_samples_epoch_2 + 1):
-        mock_data_info = {'epoch': 2, 'seq_name': f'seq_{i+100}', 'template_ids': [f't{i+100}a', f't{i+100}b'], 'search_id': f's{i+100}'}
-        mock_stats = {'Loss/total': random.random()*0.5, 'IoU': random.random() * 0.9}
+        mock_data_info = {'epoch': 2, 'seq_name': f'seq_{i + 100}', 'template_ids': [f't{i + 100}a', f't{i + 100}b'],
+                          'search_id': f's{i + 100}'}
+        mock_stats = {'Loss/total': random.random() * 0.5, 'IoU': random.random() * 0.9}
         log_data(i, mock_data_info, mock_stats)
         if i % 1000 == 0:
             print(f"Logged sample {i}/{num_samples_epoch_2} for epoch 2")
     finalize_epoch(2)
 
     print("\nData recorder example finished.")
+
+import glob  # Import glob for file pattern matching
+
+
+def reset_log():
+    """Resets the data recorder state and deletes previous log files."""
+    global _buffer, _chunk_files, _samples_in_buffer, _total_samples_logged_this_epoch, _current_epoch
+    with _file_lock:
+        print("Resetting data recorder state and deleting old log files...")
+        # Reset global state variables
+        _buffer = []
+        _chunk_files = []
+        _samples_in_buffer = 0
+        _total_samples_logged_this_epoch = 0
+        _current_epoch = None
+
+        # Delete old log files matching the patterns
+        deleted_count = 0
+        # Use glob to find matching files in the current directory (.)
+        chunk_pattern = "samples_log_epoch_*_sample_*.xlsx"
+        final_pattern = "samples_log_epoch_*_all_sample_*.xlsx"
+
+        files_to_delete = glob.glob(chunk_pattern) + glob.glob(final_pattern)
+
+        if not files_to_delete:
+            print("No old log files found to delete.")
+        else:
+            print(f"Found {len(files_to_delete)} old log files to delete:")
+            for f in files_to_delete:
+                try:
+                    os.remove(f)
+                    print(f"  - Deleted: {f}")
+                    deleted_count += 1
+                except OSError as e:
+                    print(f"  - Error deleting file {f}: {e}")
+            print(f"Finished deleting old log files. Total deleted: {deleted_count}")
+
+        print("Data recorder reset complete.")
+
 
