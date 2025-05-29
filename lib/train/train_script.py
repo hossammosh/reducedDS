@@ -25,8 +25,8 @@ def run(settings):
     if not os.path.exists(settings.cfg_file):
         raise ValueError("%s doesn't exist." % settings.cfg_file)
     config_module = importlib.import_module("lib.config.%s.config" % settings.script_name)
-    cfg = config_module.cfg # generate cfg from lib.config
-    config_module.update_config_from_file(settings.cfg_file) #update cfg from experiments
+    cfg = config_module.cfg  # generate cfg from lib.config
+    config_module.update_config_from_file(settings.cfg_file)  # update cfg from experiments
     if settings.local_rank in [-1, 0]:
         print("New configuration is shown below.")
         for key in cfg.keys():
@@ -50,10 +50,9 @@ def run(settings):
     else:
         raise ValueError("illegal DATA LOADER")
 
-
     # Create network
     if settings.script_name == "seqtrack":
-        net = build_seqtrack(cfg)        #pix2seq method with multi-frames and encoder mask
+        net = build_seqtrack(cfg)  # pix2seq method with multi-frames and encoder mask
     else:
         raise ValueError("illegal script name")
 
@@ -83,8 +82,10 @@ def run(settings):
     # Optimizer, parameters, and learning rates
     optimizer, lr_scheduler = get_optimizer_scheduler(net, cfg)
     use_amp = getattr(cfg.TRAIN, "AMP", False)
+
+    # Add log_save parameter from config, default is False
     log_save = getattr(cfg.TRAIN, "LOG_SAVE", False)
-    #trainer = LTRTrainer(actor, [loader_train], optimizer, settings, lr_scheduler, use_amp=use_amp)
+
     trainer = LTRTrainer(actor, [loader_train], optimizer, settings, lr_scheduler, use_amp=use_amp, log_save=log_save)
 
     # train process
