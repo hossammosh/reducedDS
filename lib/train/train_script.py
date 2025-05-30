@@ -17,7 +17,6 @@ from lib.train.actors import SeqTrackActor
 import importlib
 import lib.train.data_recorder as data_recorder
 
-
 def run(settings):
     settings.description = 'Training script for SeqTrack'
     data_recorder.reset_log()
