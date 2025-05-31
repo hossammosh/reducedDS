@@ -68,11 +68,22 @@ class LTRTrainer(BaseTrainer):
         self._init_timing()
         print('epoch no.= ', self.epoch)
 
-        # ----- NEW: Initialize timing variables for manual control -----
+        # Initialize gradient saving if enabled
+        self._save_gradients = False
+        if getattr(self.settings, 'save_gradients', False) and loader.training:
+            try:
+                self._grad_output_dir = os.path.join(self.settings.env.workspace_dir, 'gradients')
+                print(f"Gradient saving is ENABLED. Gradients will be saved to: {self._grad_output_dir}")
+                self._save_gradients = True
+            except Exception as e:
+                print(f"Error initializing gradient saving: {e}")
+
+        # Initialize timing
         self.last_time_print = time.time()
+        self.iteration_counter = 0
 
         for i, data in enumerate(loader, 1):
-            self.iteration_counter += 1  # NEW: Increment global iteration counter
+            self.iteration_counter += 1  # Increment global iteration counter
 
             data_info = data[1]
             sample_index = data[2]
@@ -104,6 +115,21 @@ class LTRTrainer(BaseTrainer):
                 self.optimizer.zero_grad()
                 if not self.use_amp:
                     loss.backward()
+                    
+                    # Save gradients if enabled (now on every iteration when _save_gradients is True)
+                    if self._save_gradients:
+                        try:
+                            import lib.train.data_recorder as data_recorder
+                            data_recorder.save_gradients(
+                                model=self.actor.net,
+                                sample_index=sample_index,
+                                epoch=self.epoch,
+                                output_dir=self._grad_output_dir
+                            )
+                            print(f"Saved gradients for sample {sample_index}")
+                        except Exception as e:
+                            print(f"Error saving gradients: {e}")
+                    
                     if self.settings.grad_clip_norm > 0:
                         torch.nn.utils.clip_grad_norm_(self.actor.net.parameters(), self.settings.grad_clip_norm)
                     self.optimizer.step()

@@ -5,6 +5,9 @@ import pandas as pd
 import threading
 import time
 import random
+import h5py
+import numpy as np
+import torch
 from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter
 
@@ -372,3 +375,43 @@ def reset_log():
         print("Data recorder reset complete.")
 
 
+def save_gradients(model, sample_index, epoch, output_dir='gradients'):
+    """
+    Save model gradients to an HDF5 file.
+
+    Args:
+        model: The PyTorch model
+        sample_index: Index of the current sample
+        epoch: Current epoch number
+        output_dir: Directory to save gradient files
+    """
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Create HDF5 file for this epoch if it doesn't exist
+    h5_file = os.path.join(output_dir, f'gradients_epoch_{epoch}.h5')
+
+    with h5py.File(h5_file, 'a') as f:  # 'a' mode allows appending to existing file
+        # Create a group for this sample
+        sample_grp = f.create_group(f'sample_{sample_index}')
+
+        # Save gradients for each parameter
+        for name, param in model.named_parameters():
+            if param.grad is not None:
+                # Convert gradient to numpy array and save
+                grad_data = param.grad.detach().cpu().numpy()
+
+                # Replace any problematic characters in parameter name that might cause issues with HDF5
+                safe_name = name.replace('.', '_')
+
+                # Save gradient data
+                sample_grp.create_dataset(safe_name, data=grad_data, compression='gzip')
+
+                # Also save some metadata
+                sample_grp.attrs[f'{safe_name}_shape'] = str(param.grad.shape)
+                sample_grp.attrs[f'{safe_name}_dtype'] = str(param.grad.dtype)
+
+        # Save timestamp
+        sample_grp.attrs['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S')
+        sample_grp.attrs['sample_index'] = sample_index
+        sample_grp.attrs['epoch'] = epoch
