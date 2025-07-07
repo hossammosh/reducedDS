@@ -24,11 +24,10 @@ def update_settings(settings, cfg):
     settings.scheduler_type = cfg.TRAIN.SCHEDULER.TYPE
 
     # ADD THESE TWO LINES:
-    settings.log_sample_stats_interval = getattr(cfg.TRAIN, "log_sample_stats_interval", 100)
-    settings.parameters_printing_interval = getattr(cfg.TRAIN, "parameters_printing_interval", 10)
-    settings.samples_stats_save_permission = getattr(cfg.TRAIN, "samples_stats_save_permission", [False, True])
-    settings.SAVE_GRADIENTS = getattr(cfg.TRAIN, "SAVE_GRADIENTS", [False, False])
-    settings.CHECKPOINT_SAVE_INTERVAL = getattr(cfg.TRAIN, "CHECKPOINT_SAVE_INTERVAL", 1)
+    settings.ss_print_interval = getattr(cfg.TRAIN, "ss_print_interval")
+    settings.ss_permission = getattr(cfg.TRAIN, "samples_stats_save_permission")
+    settings.save_gradients = getattr(cfg.TRAIN, "save_gradients")
+    settings.checkpoint_save_interval = getattr(cfg.TRAIN, "checkpoint_save_interval")
 
 
 def names2datasets(name_list: list, settings, image_loader):

@@ -1,6 +1,5 @@
 # Ignore data/lasot folder
 data/lasot/
-
 # Ignore Python compiled files
 __pycache__/
 *.pyc

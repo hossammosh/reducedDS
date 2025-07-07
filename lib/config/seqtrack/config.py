@@ -43,11 +43,10 @@ cfg.TRAIN.GRAD_CLIP_NORM = 0.1
 cfg.TRAIN.SCHEDULER = edict()
 cfg.TRAIN.SCHEDULER.TYPE = "step"
 cfg.TRAIN.SCHEDULER.DECAY_RATE = 0.1
-cfg.TRAIN.log_sample_stats_interval  = 50
-cfg.TRAIN.parameters_printing_interval  = 10
-cfg.TRAIN.CHECKPOINT_SAVE_INTERVAL =1
+cfg.TRAIN.ss_print_interval  = 1
+cfg.TRAIN.checkpoint_save_interval = 1
 cfg.TRAIN.samples_stats_save_permission = [False, False]  # Default value
-cfg.TRAIN.SAVE_GRADIENTS = [False, False]  # Default value
+cfg.TRAIN.save_gradients = [False, False]  # Default value
 # DATA
 cfg.DATA = edict()
 cfg.DATA.MEAN = [0.485, 0.456, 0.406]
@@ -148,5 +147,3 @@ def update_config_from_file(filename):
     with open(filename) as f:
         exp_config = edict(yaml.safe_load(f))
         _update_config(cfg, exp_config)
-
-

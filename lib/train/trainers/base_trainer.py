@@ -85,13 +85,13 @@ class BaseTrainer:
 
                     self.train_epoch()
                     #breakpoint()
-                    if self.lr_scheduler is not None:# must be discarded if samples_stats_save_permission is false
+                    if self.lr_scheduler is not None:#
                         if self.settings.scheduler_type != 'cosine':
                             self.lr_scheduler.step()
                         else:
                             self.lr_scheduler.step(epoch - 1)
                     # only save the last 10 checkpoints
-                    checkpoint_save_interval  = getattr(self.settings, "CHECKPOINT_SAVE_INTERVAL")
+                    checkpoint_save_interval  = self.settings.checkpoint_save_interval
                     if epoch % checkpoint_save_interval == 0 or (epoch == max_epochs and max_epochs % checkpoint_save_interval != 0):
                         if self._checkpoint_dir:
                             if self.settings.local_rank in [-1, 0]:

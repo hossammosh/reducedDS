@@ -56,6 +56,9 @@ class TrackingSampler(torch.utils.data.Dataset):
     def __len__(self):
         return self.samples_per_epoch
 
+
+
+
     def _sample_visible_ids(self, visible, num_ids=1, min_id=None, max_id=None,
                             allow_invisible=False, force_invisible=False):
         """ Samples num_ids frames between min_id and max_id for which target is visible

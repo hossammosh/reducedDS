@@ -31,7 +31,7 @@ DATA:
 #    - 1
 #    - 1
 #    - 1
-    SAMPLE_PER_EPOCH: 60000
+    SAMPLE_PER_EPOCH: 20
 MODEL:
   ENCODER:
     TYPE: vit_base_patch16
@@ -55,10 +55,10 @@ TRAIN:
     TYPE: step
     DECAY_RATE: 0.1
   WEIGHT_DECAY: 0.0001
-  parameters_printing_interval: 500
-  CHECKPOINT_SAVE_INTERVAL: 1
-  samples_stats_save_permission: [false, true] #,false, true]  # First epoch: false (train), Second epoch: true (save stats)
-  SAVE_GRADIENTS: [false, true] #,false, true]  # First epoch: false, Second epoch: true (save gradients)
+  ss_print_interval: 1
+  checkpoint_save_interval: 1
+  samples_stats_save_permission: [false, true] # samples_stats_save_permission   ,false, true]  # First epoch: false (train), Second epoch: true (save stats)
+  save_gradients: [false, true] #,false, true]  # First epoch: false, Second epoch: true (save gradients)
 TEST:
   EPOCH: 1
   SEARCH_FACTOR: 4.0
